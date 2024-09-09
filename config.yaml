@@ -1,0 +1,90 @@
+embedding_model_name: "BAAI/bge-large-en-v1.5"
+
+fields_to_extract:
+  - start_date
+  - company_name
+  - service_provider_name
+  - service_description
+  - service_charges
+  - end_date
+
+queries_json:
+  start_date:
+    - "What is the effective start date of the agreement or contract?"
+  company_name:
+    - "What is the name of the company or legal entity that is party to this contract?"
+  service_provider_name:
+    - "What is the name of the service provider or vendor mentioned in the contract?"
+  service_description:
+    - "What services are being provided under this contract?"
+  service_charges:
+    - "What are the service charges or payment terms outlined in this contract?"
+  end_date:
+    - "What is the termination or end date of the contract?"
+  company_address:
+    - "What is the official address of the company mentioned in this contract?"
+  service_provider_address:
+    - "What is the official address of the service provider or vendor mentioned in this contract?"
+  payment_terms:
+    - "What are the payment terms or conditions outlined in this contract?"
+  obligations_service_provider:
+    - "What are the obligations or responsibilities of the service provider as per this contract?"
+  cola:
+    - "What is the cost of living adjustment (COLA) mentioned in the contract?"
+  customer_name:
+    - "What is the name of the customer mentioned in this contract?"
+  msa_sow_start_date:
+    - "What is the start date of the MSA SOW in this contract?"
+  sub_contract_clause:
+    - "What is the subcontract clause mentioned in this contract?"
+  sow_end_date:
+    - "What is the end date of the SOW in this contract?"
+  po_sow_ref_no:
+    - "What is the PO SOW reference number mentioned in this contract?"
+  sow_start_date:
+    - "What is the start date of the SOW mentioned in this contract?"
+  slab:
+    - "What is the slab information mentioned in this contract?"
+  file_type:
+    - "What is the file type mentioned in this contract?"
+  unit_rate:
+    - "What is the unit rate for services mentioned in this contract?"
+  contract_currency:
+    - "What is the currency of the contract mentioned in this agreement?"
+  cola_yay:
+    - "What is the year-on-year cost of living adjustment (COLA) mentioned in this contract?"
+  no_of_fte:
+    - "How many Full-Time Equivalents (FTE) are mentioned in this contract?"
+  inclusive_exclusive_gst:
+    - "Is GST mentioned as inclusive or exclusive in this contract?"
+  nda:
+    - "What is the Non-Disclosure Agreement (NDA) clause mentioned in this contract?"
+  limitation_of_liability:
+    - "What is the limitation of liability clause mentioned in this contract?"
+  data_processing_agreement:
+    - "What is the data processing agreement clause mentioned in this contract?"
+    
+
+prompt_template: |
+  You are an AI assistant specializing in extracting specific fields from business contracts. 
+  Your task is to retrieve the requested field value from the provided contract content.
+
+  Context:
+  - The documents you are analyzing are legally binding contracts between businesses or entities.
+  - Fields you are tasked with extracting include key contract details such as dates, company names, terms, parties involved, and other important business information.
+  - Your role is to accurately extract these values without any assumptions or additional commentary.
+
+  Instructions:
+  1. Based on the provided field name and the relevant contract content, extract the value for the specified field in the following format:
+  {{ "value": "[Extracted value]", "field_value_found": true }} if the value is found.
+  2. If the value is not present in the provided content or cannot be determined, return:
+  {{ "value": "null", "field_value_found": false }}.
+  3. Return the output in plain text, not as a code cell or in markdown.
+  4. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
+  5. Ensure your response is based only on the provided contract content and related field.
+  6. Return the output only in the JSON format described above, with no additional text or explanations.
+
+  Required Field: {required_field}
+  Relevant Contract Content: {similar_content}
+
+  Return only the value in the strict JSON format.

@@ -5,49 +5,52 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from database import DatabaseManager
+import yaml
 
 
 class ProcessDocuments:
     def __init__(self) -> None:
+        with open("config.yaml", "r") as file:
+            config = yaml.safe_load(file)
+
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1024, chunk_overlap=25, separators=["\n\n", "\n", " ", ""]
         )
         self.embedding = HuggingFaceEmbeddings(
-            model_name="BAAI/bge-large-en-v1.5",
+            model_name=config["embedding_model_name"],
             model_kwargs={"device": "cpu"},
             encode_kwargs={"normalize_embeddings": True},
         )
 
-    def load_documents(self, folder_name: str = "contract_files") -> List[Document]:
-        print(f"Loading documents from '{folder_name}' folder...")
+    def load_documents(self, file_path: str) -> List[Document]:
+        print(f"Loading document from '{file_path}'...")
         docs = []
-        folder_path = os.path.join(os.getcwd(), folder_name)
 
-        if not os.path.exists(folder_path):
-            print(f"Error: The folder '{folder_path}' does not exist.")
+        if not os.path.exists(file_path):
+            print(f"Error: The file '{file_path}' does not exist.")
             return docs
 
-        for file_name in os.listdir(folder_path):
-            if file_name.endswith(".pdf"):
-                file_path = os.path.join(folder_path, file_name)
+        if not file_path.endswith(".pdf"):
+            print(f"Error: The file '{file_path}' is not a PDF.")
+            return docs
 
-                try:
-                    with open(file_path, "rb") as file:
-                        pdf_reader = PdfReader(file)
-                        page_content = ""
-                        for page in pdf_reader.pages:
-                            page_content += page.extract_text()
+        try:
+            with open(file_path, "rb") as file:
+                pdf_reader = PdfReader(file)
+                page_content = ""
+                for page in pdf_reader.pages:
+                    page_content += page.extract_text()
 
-                        # Create Document object
-                        docs.append(
-                            Document(
-                                page_content=page_content,
-                                metadata={"file_name": file_name},
-                            )
-                        )
-                        print(f"Successfully loaded: {file_name}")
-                except Exception as e:
-                    print(f"Error loading '{file_name}': {str(e)}")
+                # Create Document object
+                docs.append(
+                    Document(
+                        page_content=page_content,
+                        metadata={"file_name": os.path.basename(file_path)},
+                    )
+                )
+                print(f"Successfully loaded: {os.path.basename(file_path)}")
+        except Exception as e:
+            print(f"Error loading '{file_path}': {str(e)}")
 
         print(f"Total documents loaded: {len(docs)}")
         return docs

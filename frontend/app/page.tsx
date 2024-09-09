@@ -14,6 +14,7 @@ export default function LandingPage() {
   const [isDownloadReady, setIsDownloadReady] = useState(false);
   const [message, setMessage] = useState('');
   const [excelFile, setExcelFile] = useState<Blob | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const fetchHelloWorld = async () => {
     try {
@@ -34,6 +35,7 @@ export default function LandingPage() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploading(true);
+      setErrorMessage('');
 
       try {
         const formData = new FormData();
@@ -62,12 +64,12 @@ export default function LandingPage() {
           setIsDownloadReady(true); // Enable the download button
         } else {
           const errorData = await response.json();
-          console.error('File upload failed:', errorData.message);
-          alert(`File upload failed: ${errorData.message}`);
+          console.error('File upload failed:', errorData.detail);
+          setErrorMessage(`File upload failed: ${errorData.detail}`);
         }
       } catch (error) {
         console.error('Error uploading file:', error);
-        alert('An error occurred while uploading the file. Please try again.');
+        setErrorMessage('An error occurred while uploading the file. Please try again.');
       } finally {
         setIsUploading(false);
       }
@@ -123,6 +125,9 @@ export default function LandingPage() {
                   <Label htmlFor="contract">Contract File</Label>
                   <Input id="contract" type="file" accept=".pdf" onChange={handleFileUpload} />
                 </div>
+                {errorMessage && (
+                  <p className="text-red-500 mt-2">{errorMessage}</p>
+                )}
               </CardContent>
               <CardFooter className="flex justify-between">
                 <Button disabled={isUploading}>

@@ -1,13 +1,16 @@
 import json
-import csv
 import os
-from database import DatabaseManager
 from openai import OpenAI
 from langchain_core.prompts import PromptTemplate
-from process_docs import ProcessDocuments
 from dotenv import load_dotenv
+import yaml
+import csv
 
 load_dotenv()
+
+# Load configuration
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
 
 # Initialize OpenAI client
 client = OpenAI(
@@ -17,32 +20,7 @@ client = OpenAI(
 
 class ExtractField:
     def __init__(self):
-        self.prompt_template = PromptTemplate.from_template(
-            """
-            You are an AI assistant specializing in extracting specific fields from business contracts. 
-            Your task is to retrieve the requested field value from the provided contract content.
-
-            Context:
-            - The documents you are analyzing are legally binding contracts between businesses or entities.
-            - Fields you are tasked with extracting include key contract details such as dates, company names, terms, parties involved, and other important business information.
-            - Your role is to accurately extract these values without any assumptions or additional commentary.
-
-            Instructions:
-            1. Based on the provided field name and the relevant contract content, extract the value for the specified field in the following format:
-            {{ "value": "[Extracted value]", "field_value_found": true }} if the value is found.
-            2. If the value is not present in the provided content or cannot be determined, return:
-            {{ "value": "null", "field_value_found": false }}.
-            3. Return the output in plain text, not as a code cell or in markdown.
-            4. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
-            5. Ensure your response is based only on the provided contract content and related field.
-            6. Return the output only in the JSON format described above, with no additional text or explanations.
-
-            Required Field: {required_field}
-            Relevant Contract Content: {similar_content}
-
-            Return only the value in the strict JSON format.
-            """
-        )
+        self.prompt_template = PromptTemplate.from_template(config["prompt_template"])
 
     def extract_field_value(self, required_field, similar_content, max_retries=3):
         """
@@ -78,7 +56,7 @@ class ExtractField:
                 print(f"Attempt {attempt + 1} failed: Invalid JSON format.")
                 # Retry in case of a JSON format error
 
-        # If all attempts fail, return a default value
+        # If all attempts fail, return a default response
         return {"value": "null", "field_value_found": False}
 
     def write_to_csv(self, extracted_data, output_file="output.csv"):

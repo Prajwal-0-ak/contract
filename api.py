@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from typing import Dict, List
+import yaml
 
 # Import your custom classes for document processing and field extraction
 from process_docs import ProcessDocuments
@@ -10,6 +11,10 @@ from database import DatabaseManager
 from extract_fields import ExtractField
 
 app = FastAPI()
+
+# Load configuration
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
 
 origins = [
     "http://localhost:3000",
@@ -68,34 +73,8 @@ async def upload_file(file: UploadFile = File(...)) -> JSONResponse:
             )
 
         # Extract fields from the document
-        fields_to_extract = [
-            "start_date",
-            "company_name",
-            "service_provider_name",
-            "service_description",
-            "service_charges",
-            "end_date",
-        ]
-        queries_json = {
-            "start_date": [
-                "What is the effective start date of the agreement or contract?",
-            ],
-            "company_name": [
-                "What is the name of the company or legal entity that is party to this contract?",
-            ],
-            "service_provider_name": [
-                "What is the name of the service provider or vendor mentioned in the contract?",
-            ],
-            "service_description": [
-                "What services are being provided under this contract?"
-            ],
-            "service_charges": [
-                "What are the service charges or payment terms outlined in this contract?"
-            ],
-            "end_date": [
-                "What is the termination or end date of the contract?",
-            ],
-        }
+        fields_to_extract = config["fields_to_extract"]
+        queries_json = config["queries_json"]
 
         # Initialize an empty dictionary to store extracted field values
         extracted_data = {}
