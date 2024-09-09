@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pypdf
+langchain
+langchain-community
+langchain-pinecone
+sentence-transformers
+openai
+langchain-huggingface
+python-dotenv
+langchain-openai
+psycopg2-binary
