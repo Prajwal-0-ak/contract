@@ -9,4 +9,6 @@ openai
 langchain-huggingface
 python-dotenv
 langchain-openai
+langchain-core
 psycopg2-binary
+python-multipart
