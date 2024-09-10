@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import { useState } from 'react'
@@ -8,6 +9,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Upload, Download } from 'lucide-react'
 import Link from 'next/link'
 import * as XLSX from 'xlsx';
+import { toast } from "sonner"
+import {LoadingSpinnerV1, LoadingSpinnerV2, LoadingSpinnerV3} from '@/components/LoadingSpinner';
 
 export default function LandingPage() {
   const [isUploading, setIsUploading] = useState(false);
@@ -22,12 +25,15 @@ export default function LandingPage() {
       if (response.ok) {
         const data = await response.json();
         setMessage(data.message);
+        toast.success("Bakcend is Conneted!")
       } else {
-        setMessage('Failed to fetch message');
+        setMessage('Something went wrong with backend');
+        toast.error("Bakcend is not Conneted!")
       }
     } catch (error) {
       console.error('Error fetching message:', error);
       setMessage('An error occurred while fetching the message');
+      toast.error("Bakcend is not Conneted!")
     }
   };
 
@@ -60,16 +66,18 @@ export default function LandingPage() {
           const excelBlob = new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/octet-stream' });
           setExcelFile(excelBlob); // Save the Excel Blob in state
 
-          alert('File uploaded and processed successfully!');
+          toast.success("File uploaded successfully")
           setIsDownloadReady(true); // Enable the download button
         } else {
           const errorData = await response.json();
           console.error('File upload failed:', errorData.detail);
           setErrorMessage(`File upload failed: ${errorData.detail}`);
+          toast.error("File upload failed")
         }
       } catch (error) {
         console.error('Error uploading file:', error);
         setErrorMessage('An error occurred while uploading the file. Please try again.');
+        toast.error("An error occurred while uploading the file. Please try again.")
       } finally {
         setIsUploading(false);
       }
@@ -114,6 +122,7 @@ export default function LandingPage() {
         </section>
         <section className="w-full pb-6 md:pb-12 lg:pb-16">
           <div className="container px-4 md:px-6">
+          {isUploading && <LoadingSpinnerV2 />}
             <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-12">Analyze Your Contract</h2>
             <Card className="max-w-2xl mx-auto">
               <CardHeader>
