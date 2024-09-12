@@ -2,6 +2,7 @@ import os
 from psycopg2 import pool
 from dotenv import load_dotenv
 import json
+from utils.evaluation import find_page_number
 
 
 class DatabaseManager:
@@ -54,7 +55,7 @@ class DatabaseManager:
         finally:
             self.connection_pool.putconn(conn)
 
-    def retrieve_similar_content(self, embedding, top_k=5):
+    def retrieve_similar_content(self, query, embedding, top_k=5):
         conn = self.connection_pool.getconn()
         try:
             curr = conn.cursor()
@@ -62,14 +63,15 @@ class DatabaseManager:
             embedding_str = f"ARRAY[{', '.join(map(str, embedding))}]::vector"
 
             # Use the <=> operator for similarity search with pgvector
-            query = f"""
-            SELECT file_name, chunk, 1 - (chunk_embedding <=> {embedding_str}) AS cosine_similarity
-            FROM VecIndex
-            ORDER BY cosine_similarity DESC
-            LIMIT %s;
+            db_query = f"""
+                SELECT file_name, chunk, 1 - (chunk_embedding <=> {embedding_str}) AS cosine_similarity
+                FROM VecIndex
+                ORDER BY cosine_similarity DESC
+                LIMIT %s;
             """
-            curr.execute(query, (top_k,))
+            curr.execute(db_query, (top_k,))
             results = curr.fetchall()
+            find_page_number(results[0][1], results[0][0], query)
             return results
         finally:
             self.connection_pool.putconn(conn)

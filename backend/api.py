@@ -87,7 +87,7 @@ async def upload_file(file: UploadFile = File(...)) -> JSONResponse:
                     try:
                         query_embedding = process_docs.embedding.embed_query(query)
                         similar_content = db_manager.retrieve_similar_content(
-                            query_embedding, top_k=5
+                            query, query_embedding, top_k=5
                         )
                         response = extractor.extract_field_value(field, similar_content)
                         print(
