@@ -1,3 +1,4 @@
+fuzzywuzzy
 fastapi
 uvicorn
 pypdf
