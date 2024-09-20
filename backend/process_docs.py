@@ -14,11 +14,11 @@ class ProcessDocuments:
             config = yaml.safe_load(file)
 
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1024, chunk_overlap=25, separators=["\n\n", "\n", " ", ""]
+            chunk_size=512, chunk_overlap=50, separators=["\n\n", "\n", " ", ""]
         )
         self.embedding = HuggingFaceEmbeddings(
             model_name=config["embedding_model_name"],
-            model_kwargs={"device": "cpu"},
+            model_kwargs={"device": "cpu", "trust_remote_code": True},
             encode_kwargs={"normalize_embeddings": True},
         )
 

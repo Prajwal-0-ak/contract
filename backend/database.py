@@ -1,93 +1,97 @@
-import os
-from psycopg2 import pool
-from dotenv import load_dotenv
+import sqlite3
+import sqlite_vec
 import json
+import numpy as np
+from dotenv import load_dotenv
 from utils.evaluation import find_page_number
-
 
 class DatabaseManager:
     def __init__(self):
         load_dotenv()
-        connection_string = os.getenv("DATABASE_URL")
-        self.connection_pool = pool.SimpleConnectionPool(
-            1,
-            10,
-            connection_string,
-        )
-        if self.connection_pool:
-            print("Connection pool created successfully")
+        # Connect to the SQLite database and load sqlite_vec extension
+        self.conn = sqlite3.connect('vecindex.sqlite')
+        self.conn.enable_load_extension(True)
+        sqlite_vec.load(self.conn)  # Load the sqlite_vec extension for vector operations
+        self.cursor = self.conn.cursor()
         self.create_table_if_not_exists()
 
     def create_table_if_not_exists(self):
-        conn = self.connection_pool.getconn()
-        try:
-            curr = conn.cursor()
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS VecIndex (
-                id BIGSERIAL PRIMARY KEY,
-                file_name TEXT,
-                chunk TEXT,
-                chunk_embedding VECTOR(1024)
-            );
-            """
-            curr.execute(create_table_query)
-            conn.commit()
-            print("Table 'VecIndex' is ready.")
-        finally:
-            self.connection_pool.putconn(conn)
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS VecIndex (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            file_name TEXT NOT NULL,
+            chunk TEXT NOT NULL,
+            chunk_embedding BLOB NOT NULL  -- Store as binary (blob)
+        );
+        """
+        self.cursor.execute(create_table_query)
+        self.conn.commit()
+        print("Table 'VecIndex' is ready.")
 
     def insert_sample_data(self, file_name, chunk, chunk_embedding):
-        conn = self.connection_pool.getconn()
         try:
-            curr = conn.cursor()
-            chunk_embedding_str = json.dumps(
-                chunk_embedding
-            )  # Convert to JSON array string
+            # Convert embedding to bytes and insert
+            chunk_embedding_bytes = json.dumps(chunk_embedding).encode('utf-8')
             insert_query = """
             INSERT INTO VecIndex (file_name, chunk, chunk_embedding)
-            VALUES (%s, %s, %s);
+            VALUES (?, ?, ?);
             """
-            curr.execute(insert_query, (file_name, chunk, chunk_embedding_str))
-            conn.commit()
+            self.cursor.execute(insert_query, (file_name, chunk, chunk_embedding_bytes))
+            self.conn.commit()
             print("Sample data inserted successfully.")
         except Exception as e:
             print(f"An error occurred while inserting data: {e}")
-        finally:
-            self.connection_pool.putconn(conn)
 
     def retrieve_similar_content(self, query, embedding, top_k=5):
-        conn = self.connection_pool.getconn()
         try:
-            curr = conn.cursor()
-            # Convert the embedding list to a PostgreSQL array format
-            embedding_str = f"ARRAY[{', '.join(map(str, embedding))}]::vector"
+            # Convert the embedding list to a NumPy array
+            query_embedding = np.array(embedding)
 
-            # Use the <=> operator for similarity search with pgvector
-            db_query = f"""
-                SELECT file_name, chunk, 1 - (chunk_embedding <=> {embedding_str}) AS cosine_similarity
+            # Retrieve all chunks from the database
+            db_query = """
+                SELECT file_name, chunk, chunk_embedding
                 FROM VecIndex
-                ORDER BY cosine_similarity DESC
-                LIMIT %s;
+                LIMIT ?;
             """
-            curr.execute(db_query, (top_k,))
-            results = curr.fetchall()
-            find_page_number(results[0][1], results[0][0], query)
-            return results
-        finally:
-            self.connection_pool.putconn(conn)
+            self.cursor.execute(db_query, (top_k,))
+            results = self.cursor.fetchall()
+
+            # Calculate cosine similarity manually
+            similar_content = []
+            for result in results:
+                # Convert stored embedding from JSON string (binary blob) back to NumPy array
+                stored_embedding = json.loads(result[2].decode('utf-8'))
+                stored_embedding = np.array(stored_embedding)
+                
+                # Calculate cosine similarity
+                cosine_similarity = np.dot(query_embedding, stored_embedding) / (
+                    np.linalg.norm(query_embedding) * np.linalg.norm(stored_embedding)
+                )
+                
+                # Append (file_name, chunk, cosine_similarity)
+                similar_content.append((result[0], result[1], cosine_similarity))
+
+            # Sort the results based on cosine similarity in descending order
+            similar_content.sort(key=lambda x: x[2], reverse=True)
+            # Call the external function with the best match (assuming it is the top result)
+            find_page_number(similar_content[0][1], similar_content[0][0], query)
+
+            return similar_content[:top_k]
+        except Exception as e:
+            print(f"An error occurred while retrieving similar content: {e}")
+            return None
 
     def delete_chunks_by_file_name(self, file_name):
-        conn = self.connection_pool.getconn()
         try:
-            curr = conn.cursor()
             delete_query = """
-            DELETE FROM VecIndex WHERE file_name = %s;
+            DELETE FROM VecIndex WHERE file_name = ?;
             """
-            curr.execute(delete_query, (file_name,))
-            conn.commit()
+            self.cursor.execute(delete_query, (file_name,))
+            self.conn.commit()
             print(f"Chunks for file '{file_name}' deleted successfully.")
-        finally:
-            self.connection_pool.putconn(conn)
+        except Exception as e:
+            print(f"An error occurred while deleting chunks: {e}")
 
     def __del__(self):
-        self.connection_pool.closeall()
+        # Close the connection when the instance is destroyed
+        self.conn.close()

@@ -5,6 +5,7 @@ from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv
 import yaml
 import csv
+import re
 
 load_dotenv()
 
@@ -45,7 +46,12 @@ class ExtractField:
             print(f"Response: {response_text}\n\n\n")
 
             try:
-                response_json = json.loads(response_text)
+                match = re.search(r'<extracted>(.*?)</extracted>', response_text, re.DOTALL)
+                if match:
+                    extracted_json_text = match.group(1).strip()
+                else:
+                    raise ValueError("<extracted> not found.")
+                response_json = json.loads(extracted_json_text)
 
                 # Check if the response is in the expected format
                 if "value" in response_json and "field_value_found" in response_json:

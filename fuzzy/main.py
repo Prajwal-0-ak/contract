@@ -10,7 +10,7 @@ with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
 
 # Set up Groq API client
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
+client = Groq(api_key="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")
 
 # Create CSV file
 csv_filename = "contract_field_extraction.csv"

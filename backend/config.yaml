@@ -1,47 +1,42 @@
-embedding_model_name: "BAAI/bge-large-en-v1.5"
+embedding_model_name: "Alibaba-NLP/gte-large-en-v1.5"
 
 fields_to_extract:
-  - start_date
-  - company_name
-  - service_provider_name
-  - end_date
-  - company_address
-  - service_provider_address
+  - currency
+  - sow_no
+  - sow_start_date
+  - sow_end_date
+  - sow_value
+  - credit_period
   - cola
-  - no_of_fte
-  - unit_rate
-  - limitation_of_liability
+  - total_fte
 
 queries_json:
-  start_date:
-    - "What is the effective start date of the agreement or contract?"
+  currency:
+    - "What is the currency mentioned in the contract?"
 
-  company_name:
-    - "What is the name of the company or legal entity that is party to this contract?"
+  sow_no:
+    - "What is the Statement of Work (SOW) number mentioned in the contract?"
 
-  service_provider_name:
-    - "What is the name of the service provider or vendor mentioned in the contract?"
+  sow_start_date:
+    - "What is the start date of the Statement of Work (SOW)?"
 
-  end_date:
-    - "What is the termination or end date of the contract?"
+  sow_end_date:
+    - "What is the end date of the Statement of Work (SOW)?"
 
-  company_address:
-    - "What is the official address of the company mentioned in this contract?"
+  sow_value:
+    - "What is the value of the Statement of Work (SOW) mentioned in the contract?"
 
-  service_provider_address:
-    - "What is the official address of the service provider or vendor mentioned in this contract?"
+  credit_period:
+    - "What is the credit period mentioned in the contract?"
+    - "What is the payment cycle?"
+    - "Payment deadline"
 
   cola:
     - "What is the cost of living adjustment (COLA) mentioned in the contract?"
 
-  no_of_fte:
-    - "How many Full-Time Equivalents (FTE) are mentioned in this contract?"
-
-  unit_rate:
-    - "What is the unit rate for services mentioned in this contract?"
-
-  limitation_of_liability:
-    - "What is the limitation of liability clause mentioned in this contract?"
+  total_fte:
+    - "What is the total number of Full-Time Equivalents (FTE) mentioned in the contract?"
+    - "What is the number of employees assigned?"
 
 prompt_template: |
   You are an AI assistant specializing in extracting specific fields from business contracts. 
@@ -53,16 +48,45 @@ prompt_template: |
   - Your role is to accurately extract these values without any assumptions or additional commentary.
 
   Instructions:
-  1. Based on the provided field name and the relevant contract content, extract the value for the specified field in the following format:
+  1. Before doing anything, you MUST think step by step like so:
+  <steps>
+  Step 1:
+  <your thoughts>
+  
+  Step2:
+  <your thoughts>
+  ...
+  </steps>
+  
+  And then based on the provided field name and the relevant contract content, extract the value for the specified field like so:
+  
+  <extracted>
   {{ "value": "[Extracted value]", "field_value_found": true }} if the value is found.
-  2. If the value is not present in the provided content or cannot be determined, return:
+  </extracted>
+  
+  2. Overall, this SHOULD be your OUTPUT FORMAT:
+  
+  <steps>
+  Step 1:
+  <your thoughts>
+  
+  Step2:
+  <your thoughts>
+  ...
+  </steps>
+  
+  <extracted>
+  {{ "value": "[Extracted value]", "field_value_found": true }} if the value is found.
+  </extracted>
+  
+  3. If the value is not present in the provided content or cannot be determined, return:
   {{ "value": "null", "field_value_found": false }}.
-  3. Return the output in plain text, not as a code cell or in markdown.
-  4. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
-  5. Ensure your response is based only on the provided contract content and related field.
-  6. Return the output only in the JSON format described above, with no additional text or explanations.
+  4. Return the output in plain text, not as a code cell or in markdown.
+  5. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
+  6. Ensure your response is based only on the provided contract content and related field.
+  7. Return the output ONLY in the format described above.
 
   Required Field: {required_field}
   Relevant Contract Content: {similar_content}
 
-  Return only the value in the strict JSON format.
+  The output should be in the provided format ONLY.
