@@ -1,218 +1,281 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-"use client"
+"use client";
 
-import { useState } from 'react'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, Download } from 'lucide-react'
-import Link from 'next/link'
-import * as XLSX from 'xlsx';
-import { toast } from "sonner"
-import {LoadingSpinnerV1, LoadingSpinnerV2, LoadingSpinnerV3} from '@/components/LoadingSpinner';
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { toast } from "sonner";
 
-export default function LandingPage() {
+import * as XLSX from "xlsx";
+import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
+
+export default function ContractForm() {
+  // Form state
+  const [formData, setFormData] = useState({
+    remark: "",
+    gst: "exclusive",
+    subContractClause: "",
+    sowValue: "",
+  });
+
+  // API response state
+  const [apiData, setApiData] = useState({
+    account_name: "",
+    currency: "",
+    sow_start_date: "",
+    sow_end_date: "",
+    sow_number: "",
+    cola: "",
+    total_fte: "",
+    credit_period: "",
+  });
+
+  // File upload state
+  const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDownloadReady, setIsDownloadReady] = useState(false);
-  const [message, setMessage] = useState('');
   const [excelFile, setExcelFile] = useState<Blob | null>(null);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [pdfType, setPdfType] = useState("SOW");
 
-  const fetchHelloWorld = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/');
-      if (response.ok) {
-        const data = await response.json();
-        setMessage(data.message);
-        toast.success("Bakcend is Conneted!")
-      } else {
-        setMessage('Something went wrong with backend');
-        toast.error("Bakcend is not Conneted!")
-      }
-    } catch (error) {
-      console.error('Error fetching message:', error);
-      setMessage('An error occurred while fetching the message');
-      toast.error("Bakcend is not Conneted!")
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: value,
+    }));
+  };
+
+  // Handle select changes
+  const handleSelectChange = (value: string) => {
+    setFormData((prevData) => ({
+      ...prevData,
+      gst: value,
+    }));
+  };
+
+  // Handle file selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFile(e.target.files[0]);
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handlePdfTypeChange = (value: string) => {
+    setPdfType(value);
+  };
+
+  // Handle file upload
+  const handleFileUpload = async () => {
     if (file) {
       setIsUploading(true);
-      setErrorMessage('');
 
       try {
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append("file", file);
+        formData.append("pdfType", pdfType);
 
-        const response = await fetch('http://localhost:8000/upload', {
-          method: 'POST',
+        const response = await fetch("http://localhost:8000/upload", {
+          method: "POST",
           body: formData,
         });
 
         if (response.ok) {
           const result = await response.json();
-          console.log('File uploaded successfully:', result);
+          console.log("File uploaded successfully:", result);
 
-          // Generate Excel from the CSV data received from the backend
-          const extractedData = result.extracted_data; // assuming backend sends extracted_data
-          const ws = XLSX.utils.json_to_sheet([extractedData]); // Convert JSON to worksheet
+          setApiData(result.extracted_data);
+
+          const allData = { ...formData, ...result.extracted_data };
+          const ws = XLSX.utils.json_to_sheet([allData]);
           const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, 'Contract Data');
+          XLSX.utils.book_append_sheet(wb, ws, "Contract Data");
 
-          // Generate Excel file as a Blob
-          const excelBlob = new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })], { type: 'application/octet-stream' });
-          setExcelFile(excelBlob); // Save the Excel Blob in state
+          const excelBlob = new Blob(
+            [XLSX.write(wb, { bookType: "xlsx", type: "array" })],
+            { type: "application/octet-stream" }
+          );
+          setExcelFile(excelBlob);
 
-          toast.success("File uploaded successfully")
-          setIsDownloadReady(true); // Enable the download button
+          setIsDownloadReady(true);
+          toast.success("File uploaded successfully");
         } else {
           const errorData = await response.json();
-          console.error('File upload failed:', errorData.detail);
-          setErrorMessage(`File upload failed: ${errorData.detail}`);
-          toast.error("File upload failed")
+          console.error("File upload failed:", errorData.detail);
+          toast.error(
+            "An error occurred while uploading the file. Please try again."
+          );
         }
       } catch (error) {
-        console.error('Error uploading file:', error);
-        setErrorMessage('An error occurred while uploading the file. Please try again.');
-        toast.error("An error occurred while uploading the file. Please try again.")
+        console.error("Error uploading file:", error);
+        toast.error(
+          "An error occurred while uploading the file. Please try again."
+        );
       } finally {
         setIsUploading(false);
       }
     }
   };
 
-  // Handle Excel file download when the button is clicked
+  // Handle Excel download
   const handleDownload = () => {
     if (excelFile) {
       const url = URL.createObjectURL(excelFile);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', 'Contract_Report.xlsx');
+      link.setAttribute("download", "Contract_Report.xlsx");
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link); // Clean up the link
+      document.body.removeChild(link);
+      toast.success("Excel file downloaded successfully");
     }
   };
 
+  const router = useRouter();
   return (
-    <div className="flex flex-col min-h-screen">
-      <main className="flex-1">
-        <section className="w-full py-4 md:py-8 lg:py-12 xl:py-16">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none">
-                  Contract Analysis Made Easy
-                </h1>
-                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl dark:text-gray-400">
-                  Upload your contracts and get detailed reports in minutes. Save time and reduce errors with our advanced AI-powered analysis.
-                </p>
-              </div>
-              <button onClick={fetchHelloWorld}>Fetch Hello World</button>
-              <p>{message}</p>
-              <div className="space-x-4">
-                <Button>Get Started</Button>
-                <Button variant="outline">Learn More</Button>
-              </div>
-            </div>
-          </div>
-        </section>
-        <section className="w-full pb-6 md:pb-12 lg:pb-16">
-          <div className="container px-4 md:px-6">
-          {isUploading && <LoadingSpinnerV2 />}
-            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-12">Analyze Your Contract</h2>
-            <Card className="max-w-2xl mx-auto">
-              <CardHeader>
-                <CardTitle>Upload Your Contract</CardTitle>
-                <CardDescription>Upload your PDF contract to get started</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid w-full max-w-sm items-center gap-1.5">
-                  <Label htmlFor="contract">Contract File</Label>
-                  <Input id="contract" type="file" accept=".pdf" onChange={handleFileUpload} />
-                </div>
-                {errorMessage && (
-                  <p className="text-red-500 mt-2">{errorMessage}</p>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button disabled={isUploading}>
-                  {isUploading ? (
-                    <>
-                      <Upload className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload
-                    </>
-                  )}
-                </Button>
-                <Button onClick={handleDownload} disabled={!isDownloadReady} variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Report
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        </section>
-        <section id="how-it-works" className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-gray-800">
-          <div className="container px-4 md:px-6 text-black">
-            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-center mb-12">How It Works</h2>
-            <ol className="grid gap-6 md:grid-cols-3">
-              <li className="flex flex-col items-center text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">1</div>
-                <h3 className="mt-4 font-semibold">Upload Your Contract</h3>
-                <p className="mt-2 text-sm">Simply upload your PDF contract through our secure interface.</p>
-              </li>
-              <li className="flex flex-col items-center text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">2</div>
-                <h3 className="mt-4 font-semibold">AI Analysis</h3>
-                <p className="mt-2 text-sm">Our advanced AI system analyzes your contract thoroughly.</p>
-              </li>
-              <li className="flex flex-col items-center text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">3</div>
-                <h3 className="mt-4 font-semibold">Download Report</h3>
-                <p className="mt-2 text-sm">Receive a comprehensive report with insights and recommendations.</p>
-              </li>
-            </ol>
-          </div>
-        </section>
+    <div className="min-h-screen bg-black">
+      <nav>
+        <Button onClick={() => router.push('/chat')}>Chat</Button>
+      </nav>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="px-4 py-5 sm:p-6">
+              <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                Contract Form
+              </h1>
 
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-gray-100 dark:bg-gray-800">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-black">
-                  Ready to Streamline Your Contract Analysis?
-                </h2>
-                <p className="mx-auto max-w-[700px] text-gray-500 md:text-xl dark:text-gray-400">
-                  Join thousands of satisfied customers who have revolutionized their contract management process.
-                </p>
+              <form className="space-y-6 text-black">
+                <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="remark">Remark</Label>
+                    <Input
+                      id="remark"
+                      name="remark"
+                      value={formData.remark}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="gst">GST</Label>
+                    <Select
+                      onValueChange={handleSelectChange}
+                      value={formData.gst}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select GST type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="exclusive">Exclusive</SelectItem>
+                        <SelectItem value="inclusive">Inclusive</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="subContractClause">
+                      Sub Contract Clause
+                    </Label>
+                    <Input
+                      id="subContractClause"
+                      name="subContractClause"
+                      value={formData.subContractClause}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="sowValue">SOW Value</Label>
+                    <Input
+                      id="sowValue"
+                      name="sowValue"
+                      value={formData.sowValue}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+              </form>
+
+              <div className="mt-8 text-black">
+                <Label htmlFor="file-upload">Upload PDF</Label>
+                <div className="mt-1 flex items-center gap-x-12">
+                  <Input
+                    id="file-upload"
+                    type="file"
+                    onChange={handleFileChange}
+                    accept=".pdf"
+                  />
+                  <Select value={pdfType} onValueChange={handlePdfTypeChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select PDF type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NDA">NDA</SelectItem>
+                      <SelectItem value="SOW">SOW</SelectItem>
+                      <SelectItem value="MSA">MSA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleFileUpload}
+                    disabled={!file || isUploading}
+                    className="ml-4"
+                  >
+                    {isUploading ? "Uploading..." : "Upload PDF"}
+                  </Button>
+                </div>
               </div>
-              <div className="space-x-4">
-                <Button size="lg">Get Started Now</Button>
-                <Button className='text-black' size="lg" variant="outline">Contact Sales</Button>
+
+              <Separator className="mt-12 text-black" />
+
+              <div className="mt-8 overflow-x-auto text-black">
+                <h1>
+                  <span className="text-2xl font-bold text-gray-900">
+                    Contract Data
+                  </span>
+                </h1>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Field</TableHead>
+                      <TableHead>Value</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Object.entries({ ...formData, ...apiData }).map(
+                      ([key, value]) => (
+                        <TableRow key={key}>
+                          <TableCell className="font-medium">{key}</TableCell>
+                          <TableCell>{value}</TableCell>
+                        </TableRow>
+                      )
+                    )}
+                  </TableBody>
+                </Table>
               </div>
+
+              {isDownloadReady && (
+                <div className="mt-8">
+                  <Button onClick={handleDownload}>Download Excel</Button>
+                </div>
+              )}
             </div>
           </div>
-        </section>
+        </div>
       </main>
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-gray-500 dark:text-gray-400">© 2023 Acme Contract Analysis. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Terms of Service
-          </Link>
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Privacy
-          </Link>
-        </nav>
-      </footer>
     </div>
-  )
+  );
 }

@@ -1,8 +1,8 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os
-from typing import Dict, List
+from typing import Dict
 import yaml
 
 # Import your custom classes for document processing and field extraction
@@ -43,7 +43,7 @@ def read_root() -> Dict[str, str]:
 
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)) -> JSONResponse:
+async def upload_file(file: UploadFile = File(...), pdfType: str = Form(...)) -> JSONResponse:
     try:
         if not file.filename.endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed.")
@@ -73,8 +73,20 @@ async def upload_file(file: UploadFile = File(...)) -> JSONResponse:
             )
 
         # Extract fields from the document
-        fields_to_extract = config["fields_to_extract"]
-        queries_json = config["queries_json"]
+        if pdfType == "NDA":
+            fields_to_extract = config["nda_fields_to_extract"]
+            queries_json = config["nda_queries"]
+        elif pdfType == "SOW":
+            fields_to_extract = config["sow_fields_to_extract"]
+            queries_json = config["sow_queries"]
+        elif pdfType == "MSA":
+            fields_to_extract = config["msa_fields_to_extract"]
+            queries_json = config["msa_queries"]
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid PDF type. Please specify 'NDA', 'SOW', or 'MSA'.",
+            )
 
         # Initialize an empty dictionary to store extracted field values
         extracted_data = {}
@@ -128,6 +140,7 @@ async def upload_file(file: UploadFile = File(...)) -> JSONResponse:
             )
 
         # Return the extracted data to the client
+        print(f"Extracted data: {extracted_data}")  # Debugging line
         return JSONResponse(content={"extracted_data": extracted_data})
 
     except HTTPException as e:

@@ -1,21 +1,21 @@
 embedding_model_name: "Alibaba-NLP/gte-large-en-v1.5"
 
-fields_to_extract:
+sow_fields_to_extract:
+  - account_name
   - currency
-  - sow_no
   - sow_start_date
   - sow_end_date
-  - sow_value
-  - credit_period
+  - sow_number
   - cola
   - total_fte
+  - credit_period
 
-queries_json:
+sow_queries:
+  account_name:
+    - "What is the name of the recipient company? Next Wealth is the service provide name so extract the recipient company name."
+
   currency:
     - "What is the currency mentioned in the contract?"
-
-  sow_no:
-    - "What is the Statement of Work (SOW) number mentioned in the contract?"
 
   sow_start_date:
     - "What is the start date of the Statement of Work (SOW)?"
@@ -23,20 +23,19 @@ queries_json:
   sow_end_date:
     - "What is the end date of the Statement of Work (SOW)?"
 
-  sow_value:
-    - "What is the value of the Statement of Work (SOW) mentioned in the contract?"
-
-  credit_period:
-    - "What is the credit period mentioned in the contract?"
-    - "What is the payment cycle?"
-    - "Payment deadline"
-
+  sow_number:
+    - "What is the Statement of Work (SOW) number?"
+    
   cola:
     - "What is the cost of living adjustment (COLA) mentioned in the contract?"
 
   total_fte:
-    - "What is the total number of Full-Time Equivalents (FTE) mentioned in the contract?"
-    - "What is the number of employees assigned?"
+    - "What is the total number of Full-Time Equivalents (FTE) mentioned in the contract? Give the total number of employees assigned to each task."
+    - "What is the number of employees assigned to each task?"
+
+  credit_period:
+    - "Invoice will be raised on the last day of the month and the payment to be made net 45 days of receiving invoice."
+    - "Credit period is 45 days from the date of invoice. What is the credit period mentioned in the contract?"
 
 prompt_template: |
   You are an AI assistant specializing in extracting specific fields from business contracts. 
