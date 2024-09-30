@@ -1,6 +1,7 @@
 import sqlite3
 import sqlite_vec
 import json
+import struct
 import numpy as np
 from dotenv import load_dotenv
 from utils.evaluation import find_page_number
@@ -43,6 +44,14 @@ class DatabaseManager:
             print(f"An error occurred while inserting data: {e}")
 
     def retrieve_similar_content(self, query, embedding, top_k=5):
+        # util functions
+        def serialize(vector: list[float]) -> bytes:
+            """
+            Serializes a list of floats into a compact "raw bytes" format. Taken from:
+            https://github.com/asg017/sqlite-vec/blob/496560cf9ac4b358ea43793e591f376c02c16b90/examples/python-recipes/openai-sample.py#L10
+            """
+            return struct.pack("%sf" % len(vector), *vector)
+
         try:
             # Convert the embedding list to a NumPy array
             query_embedding = np.array(embedding)

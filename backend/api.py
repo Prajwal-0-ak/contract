@@ -120,24 +120,24 @@ async def upload_file(file: UploadFile = File(...), pdfType: str = Form(...)) ->
                 extracted_data[field] = "null"
 
         # After processing, delete the file's chunks from the vector database
-        try:
-            db_manager.delete_chunks_by_file_name(file.filename)
-            print("Chunks deleted successfully")  # Debugging line
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error deleting chunks by file name: {str(e)}",
-            )
+            # try:
+            #     db_manager.delete_chunks_by_file_name(file.filename)
+            #     print("Chunks deleted successfully")  # Debugging line
+            # except Exception as e:
+            #     raise HTTPException(
+            #         status_code=500,
+            #         detail=f"Error deleting chunks by file name: {str(e)}",
+            #     )
 
-        # Delete the uploaded PDF file after processing
-        try:
-            os.remove(file_path)
-            print("Uploaded file deleted successfully")  # Debugging line
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error deleting uploaded file: {str(e)}",
-            )
+            # # Delete the uploaded PDF file after processing
+            # try:
+            #     os.remove(file_path)
+            #     print("Uploaded file deleted successfully")  # Debugging line
+            # except Exception as e:
+            #     raise HTTPException(
+            #         status_code=500,
+            #         detail=f"Error deleting uploaded file: {str(e)}",
+            #     )
 
         # Return the extracted data to the client
         print(f"Extracted data: {extracted_data}")  # Debugging line
