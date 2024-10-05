@@ -12,8 +12,11 @@ class DatabaseManager:
         # Connect to the SQLite database and load sqlite_vec extension
         self.conn = sqlite3.connect('vecindex.sqlite')
         self.conn.enable_load_extension(True)
+        print("AAAAA")
         sqlite_vec.load(self.conn)  # Load the sqlite_vec extension for vector operations
+        print("BBBBB")
         self.cursor = self.conn.cursor()
+        print("CCCCC")
         self.create_table_if_not_exists()
 
 
@@ -24,6 +27,7 @@ class DatabaseManager:
         https://github.com/asg017/sqlite-vec/blob/496560cf9ac4b358ea43793e591f376c02c16b90/examples/python-recipes/openai-sample.py#L10
         """
         return struct.pack("%sf" % len(vector), *vector)
+
 
     def create_table_if_not_exists(self):
         create_chunks_table_query = """
@@ -45,6 +49,7 @@ class DatabaseManager:
         self.cursor.execute(create_vector_index_table_query)
         self.conn.commit()
         print("Table 'text_chunks' and 'vec_idx' is ready.")
+
 
     def insert_sample_data(self, file_name, chunk, chunk_embedding):
         try:
@@ -80,7 +85,7 @@ class DatabaseManager:
                     chunk,
                     chunk_embedding
                 FROM vec_idx
-                LEFT JOIN text_chunks ON text_chunks.id = vec_idx.id;
+                LEFT JOIN text_chunks ON text_chunks.id = vec_idx.id
                 WHERE embedding MATCH ?
                     AND k = ?
                 ORDER BY distance
@@ -102,13 +107,18 @@ class DatabaseManager:
             return None
 
     def delete_chunks_by_file_name(self, file_name):
+        # TODO: remove redundant file_name argument
         try:
             delete_query = """
-            DELETE FROM text_chunks WHERE file_name = ?;
+            TRUNCATE TABLE text_chunks;
             """
-            self.cursor.execute(delete_query, (file_name,))
+            self.cursor.execute(delete_query)
+            delete_query = """
+            TRUNCATE TABLE vec_idx;
+            """
+            self.cursor.execute(delete_query)
             self.conn.commit()
-            print(f"Chunks for file '{file_name}' deleted successfully.")
+            print(f"Chunks deleted successfully.")
         except Exception as e:
             print(f"An error occurred while deleting chunks: {e}")
 

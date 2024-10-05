@@ -47,8 +47,8 @@ def process_files_in_directory(directory: str) -> None:
             continue
 
         # Extract fields from the document
-        fields_to_extract = config["fields_to_extract"]
-        queries_json = config["queries_json"]
+        fields_to_extract = config["sow_fields_to_extract"]
+        queries_json = config["sow_queries"]
 
         # Initialize an empty dictionary to store extracted field values
         extracted_data = {"file_name": pdf_file}
