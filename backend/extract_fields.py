@@ -30,10 +30,13 @@ class ExtractField:
             required_field=required_field, similar_content=similar_content
         )
 
+        # print(f"------------------------------Prompt: {prompt}------------------------------")
+
         for attempt in range(max_retries):
             # Create a chat completion using the OpenAI client
+            print(f"------------------------------Attempt {attempt + 1}------------------------------")
             response = client.chat.completions.create(
-                model="gpt-4o-mini",  # Ensure the model name is correct
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt},
@@ -43,7 +46,7 @@ class ExtractField:
             # Extract the content from the response
             response_text = response.choices[0].message.content.strip()
 
-            print(f"Response: {response_text}\n\n\n")
+            print(F"------------------------------Response: {response_text}------------------------------")
 
             try:
                 match = re.search(r'<extracted>(.*?)</extracted>', response_text, re.DOTALL)
@@ -57,7 +60,7 @@ class ExtractField:
                 if "value" in response_json and "field_value_found" in response_json:
                     return response_json
             except json.JSONDecodeError:
-                print(f"Attempt {attempt + 1} failed: Invalid JSON format.")
+                print(f"---------------------------------JSON format error in response: {response_text}---------------------------------")
                 # Retry in case of a JSON format error
 
         # If all attempts fail, return a default response

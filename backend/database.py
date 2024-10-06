@@ -1,127 +1,103 @@
-import sqlite3
-import sqlite_vec
-import json
-import struct
-import numpy as np
-from dotenv import load_dotenv
-from utils.evaluation import find_page_number
+
+import torch
+from transformers import AutoTokenizer, AutoModel
+from pymilvus import MilvusClient
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class DatabaseManager:
-    def _init_(self):
-        load_dotenv()
-        # Connect to the SQLite database and load sqlite_vec extension
-        self.conn = sqlite3.connect('vecindex.sqlite')
-        self.conn.enable_load_extension(True)
-        print("AAAAA")
-        sqlite_vec.load(self.conn)  # Load the sqlite_vec extension for vector operations
-        print("BBBBB")
-        self.cursor = self.conn.cursor()
-        print("CCCCC")
-        self.create_table_if_not_exists()
+    def __init__(self, model_name: str, milvus_uri: str, collection_name: str, dimension: int):
+        self.model_name = model_name
+        self.milvus_uri = milvus_uri
+        self.collection_name = collection_name
+        self.dimension = dimension
+        self.inference_batch_size = 64
 
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModel.from_pretrained(self.model_name)
+        self.milvus_client = MilvusClient(self.milvus_uri)
+        self.setup_milvus()
+    
+    def setup_milvus(self):
 
-    @staticmethod
-    def serialize(vector: list[float]) -> bytes:
-        """
-        Serializes a list of floats into a compact "raw bytes" format. Taken from:
-        https://github.com/asg017/sqlite-vec/blob/496560cf9ac4b358ea43793e591f376c02c16b90/examples/python-recipes/openai-sample.py#L10
-        """
-        return struct.pack("%sf" % len(vector), *vector)
+        print(f"------------------------------Setting up Milvus collection '{self.collection_name}'...------------------------------")
+        if self.milvus_client.has_collection(collection_name=self.collection_name):
+            self.milvus_client.drop_collection(collection_name=self.collection_name)
 
+        self.milvus_client.create_collection(
+            collection_name=self.collection_name,
+            dimension=self.dimension,
+            auto_id=True,
+            enable_dynamic_field=True,
+            vector_field_name="text_embedding",
+            consistency_level="Strong",
+        )
 
-    def create_table_if_not_exists(self):
-        create_chunks_table_query = """
-        CREATE TABLE IF NOT EXISTS text_chunks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            file_name TEXT NOT NULL,
-            chunk TEXT NOT NULL,
-        );
-        """
+    def chunk_and_insert(self, text_content: str):
 
-        create_vector_index_table_query = """
-        CREATE VIRTUAL TABLE IF NOT EXISTS vec_idx USING vec0 (
-            id INTEGER PRIMARY KEY,
-            embedding FLOAT[1024]
-        );
-        """
+        print("------------------------------Chunking and inserting text content into Milvus collection------------------------------")
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=512, chunk_overlap=50, separators=["\n\n", "\n", " ", ""]
+        )
+        chunked_texts = text_splitter.split_text(text_content)
 
-        self.cursor.execute(create_chunks_table_query)
-        self.cursor.execute(create_vector_index_table_query)
-        self.conn.commit()
-        print("Table 'text_chunks' and 'vec_idx' is ready.")
+        print(f"------------------------------Number of chunks: {len(chunked_texts)}------------------------------")
 
+        data_list = self.process_chunked_texts(chunked_texts)
+        self.insert_data(data_list)
 
-    def insert_sample_data(self, file_name, chunk, chunk_embedding):
-        try:
-            # Convert embedding to bytes and insert
-            # chunk_embedding_bytes = json.dumps(chunk_embedding).encode('utf-8')
-            insert_chunk_query = """
-            INSERT INTO text_chunks (file_name, chunk)
-            VALUES (?, ?)
-            """
+    def process_chunked_texts(self, chunked_texts):
 
-            insert_emb_query = """
-            INSERT INTO vec_idx (embedding)
-            VALUES (?)
-            """
-            self.cursor.execute(insert_chunk_query, (file_name, chunk))
-            self.cursor.execute(insert_emb_query, (DatabaseManager.serialize(chunk_embedding), ))
-            self.conn.commit()
-            print("Sample data inserted successfully.")
-        except Exception as e:
-            print(f"An error occurred while inserting data: {e}")
+        print("------------------------------Processing chunked texts------------------------------")
+        data_list = []
+        for i in range(0, len(chunked_texts), self.inference_batch_size):
+            batch = chunked_texts[i:i+self.inference_batch_size]
+            embeddings = self.encode_text(batch)
+            for text, embedding in zip(batch, embeddings):
+                data_list.append({
+                    "text": text,
+                    "text_embedding": embedding.tolist()
+                })
+        return data_list
+    
+    def insert_data(self, data_list):
 
-    def retrieve_similar_content(self, query, embedding, top_k=5):
-        try:
-            # Convert the embedding list to a NumPy array
-            query_embedding = np.array(embedding)
+        print("------------------------------Inserting data into Milvus collection------------------------------")
+        self.milvus_client.insert(collection_name=self.collection_name, data=data_list)
 
-            # Retrieve all chunks from the database
-            db_query = """
-                SELECT
-                    vec_idx.id,
-                    distance,
-                    file_name,
-                    chunk,
-                    chunk_embedding
-                FROM vec_idx
-                LEFT JOIN text_chunks ON text_chunks.id = vec_idx.id
-                WHERE embedding MATCH ?
-                    AND k = ?
-                ORDER BY distance
-            """
-            self.cursor.execute(db_query, (DatabaseManager.serialize(query_embedding), top_k))
-            results = self.cursor.fetchall()
+    def retrieve_similar_content(self, query, k=3):
 
-            similar_content = []
-            for result in results:
-                # Append (file_name, chunk, cosine_similarity)
-                similar_content.append((result[2], result[3], result[1]))
+        print("------------------------------Retrieving similar content from Milvus collection------------------------------")
+        query_embedding = self.encode_text(query).tolist()[0]  # Extract the first (and only) embedding
+        search_results = self.milvus_client.search(
+            collection_name=self.collection_name,
+            data=[query_embedding],  # Pass as a list of a single embedding
+            limit=k,
+            output_fields=["text"],
+        )
+        print(f"------------------------------Query: {query}------------------------------")
+        print(f"------------------------------Search results: \n {search_results}------------------------------")
+        return [r["entity"]["text"] for r in search_results[0]]  # Return only the text of top K documents
 
-            # Call the external function with the best match (assuming it is the top result)
-            # find_page_number(similar_content[0][1], similar_content[0][0], query)
+    def delete_collection(self):
+        if self.milvus_client.has_collection(collection_name=self.collection_name):
+            self.milvus_client.drop_collection(collection_name=self.collection_name)
+            print(f"------------------------------Collection '{self.collection_name}' has been deleted.------------------------------")
+        else:
+            print(f"------------------------------Collection '{self.collection_name}' does not exist.------------------------------")
 
-            return similar_content
-        except Exception as e:
-            print(f"An error occurred while retrieving similar content: {e}")
-            return None
+    # Utility function to encode text into embeddings
+    def encode_text(self, texts):
+        if isinstance(texts, str):
+            texts = [texts]
+        encoded_input = self.tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
 
-    def delete_chunks_by_file_name(self, file_name):
-        # TODO: remove redundant file_name argument
-        try:
-            delete_query = """
-            TRUNCATE TABLE text_chunks;
-            """
-            self.cursor.execute(delete_query)
-            delete_query = """
-            TRUNCATE TABLE vec_idx;
-            """
-            self.cursor.execute(delete_query)
-            self.conn.commit()
-            print(f"Chunks deleted successfully.")
-        except Exception as e:
-            print(f"An error occurred while deleting chunks: {e}")
+        with torch.no_grad():
+            model_output = self.model(**encoded_input)
 
-    def _del_(self):
-        # Close the connection when the instance is destroyed
-        self.conn.close()
+        token_embeddings = model_output[0]
+        attention_mask = encoded_input["attention_mask"]
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+        sentence_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+
+        return torch.nn.functional.normalize(sentence_embeddings, p=2, dim=1)
+ 

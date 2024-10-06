@@ -33,7 +33,12 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Initialize classes
 process_docs = ProcessDocuments()
-db_manager = DatabaseManager()
+db_manager = DatabaseManager(
+    model_name="BAAI/bge-large-en-v1.5",
+    milvus_uri="./huggingface_milvus_test.db",
+    collection_name="huggingface_test",
+    dimension=1024
+)
 extractor = ExtractField()
 
 
@@ -55,8 +60,8 @@ async def upload_file(file: UploadFile = File(...), pdfType: str = Form(...)) ->
 
         # Load and process the document
         try:
-            docs = process_docs.load_documents(file_path)
-            print(f"Documents loaded successfully: {docs}")  # Debugging line
+            pdf_content = process_docs.load_documents(file_path)
+            print("Documents Content loaded successfully")  # Debugging line
         except Exception as e:
             raise HTTPException(
                 status_code=500,
@@ -64,7 +69,7 @@ async def upload_file(file: UploadFile = File(...), pdfType: str = Form(...)) ->
             )
 
         try:
-            process_docs.chunk_and_insert(db_manager, docs)
+            db_manager.chunk_and_insert(pdf_content)
             print("Documents chunked and inserted successfully")  # Debugging line
         except Exception as e:
             raise HTTPException(
@@ -97,11 +102,10 @@ async def upload_file(file: UploadFile = File(...), pdfType: str = Form(...)) ->
             for query in queries_json[field]:
                 if not field_value_found:
                     try:
-                        query_embedding = process_docs.embedding.embed_query(query)
                         similar_content = db_manager.retrieve_similar_content(
-                            query, query_embedding, top_k=5
+                            query, k=2
                         )
-                        response = extractor.extract_field_value(field, similar_content)
+                        response = extractor.extract_field_value(field, similar_content[0])
                         print(
                             f"Extracted field '{field}': {response}"
                         )  # Debugging line
@@ -120,24 +124,24 @@ async def upload_file(file: UploadFile = File(...), pdfType: str = Form(...)) ->
                 extracted_data[field] = "null"
 
         # After processing, delete the file's chunks from the vector database
-            # try:
-            #     db_manager.delete_chunks_by_file_name(file.filename)
-            #     print("Chunks deleted successfully")  # Debugging line
-            # except Exception as e:
-            #     raise HTTPException(
-            #         status_code=500,
-            #         detail=f"Error deleting chunks by file name: {str(e)}",
-            #     )
+            try:
+                db_manager.delete_collection()
+                print("Chunks deleted successfully")  # Debugging line
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error deleting chunks by file name: {str(e)}",
+                )
 
-            # # Delete the uploaded PDF file after processing
-            # try:
-            #     os.remove(file_path)
-            #     print("Uploaded file deleted successfully")  # Debugging line
-            # except Exception as e:
-            #     raise HTTPException(
-            #         status_code=500,
-            #         detail=f"Error deleting uploaded file: {str(e)}",
-            #     )
+            # Delete the uploaded PDF file after processing
+            try:
+                os.remove(file_path)
+                print("Uploaded file deleted successfully")  # Debugging line
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error deleting uploaded file: {str(e)}",
+                )
 
         # Return the extracted data to the client
         print(f"Extracted data: {extracted_data}")  # Debugging line
