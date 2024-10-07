@@ -32,58 +32,68 @@ class DatabaseManager:
             consistency_level="Strong",
         )
 
-    def chunk_and_insert(self, text_content: str):
+    def chunk_and_insert(self, pages: list):
 
-        print("------------------------------Chunking and inserting text content into Milvus collection------------------------------")
+        print("------------------------------------------------------------Chunking and inserting text content into Milvus collection------------------------------")
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=512, chunk_overlap=50, separators=["\n\n", "\n", " ", ""]
+            chunk_size=512, chunk_overlap=10, separators=["\n\n", "\n", " ", ""]
         )
-        chunked_texts = text_splitter.split_text(text_content)
 
-        print(f"------------------------------Number of chunks: {len(chunked_texts)}------------------------------")
+        data_list = []
+        for page in pages:
+            page_number = page["page_number"]
+            chunked_texts = text_splitter.split_text(page["text"])
 
-        data_list = self.process_chunked_texts(chunked_texts)
+            print(f"------------------------------------------------------------Number of chunks for page {page_number}: {len(chunked_texts)}------------------------------")
+
+            data_list.extend(self.process_chunked_texts(chunked_texts, page_number))
+
         self.insert_data(data_list)
 
-    def process_chunked_texts(self, chunked_texts):
+    def process_chunked_texts(self, chunked_texts, page_number):
 
-        print("------------------------------Processing chunked texts------------------------------")
+        print(f"------------------------------------------------------------Processing chunked texts for page {page_number}------------------------------")
         data_list = []
         for i in range(0, len(chunked_texts), self.inference_batch_size):
-            batch = chunked_texts[i:i+self.inference_batch_size]
+            batch = chunked_texts[i:i + self.inference_batch_size]
             embeddings = self.encode_text(batch)
             for text, embedding in zip(batch, embeddings):
                 data_list.append({
                     "text": text,
-                    "text_embedding": embedding.tolist()
+                    "text_embedding": embedding.tolist(),
+                    "page_number": page_number  # Add the page number as metadata
                 })
         return data_list
+
     
     def insert_data(self, data_list):
 
-        print("------------------------------Inserting data into Milvus collection------------------------------")
+        print("------------------------------------------------------------Inserting data into Milvus collection")
         self.milvus_client.insert(collection_name=self.collection_name, data=data_list)
+
 
     def retrieve_similar_content(self, query, k=3):
 
-        print("------------------------------Retrieving similar content from Milvus collection------------------------------")
+        # print("\n\n\n\nRetrieving similar content from Milvus collection")
+        print("\n\n\n\n")
         query_embedding = self.encode_text(query).tolist()[0]  # Extract the first (and only) embedding
         search_results = self.milvus_client.search(
             collection_name=self.collection_name,
             data=[query_embedding],  # Pass as a list of a single embedding
             limit=k,
-            output_fields=["text"],
+            output_fields=["text", "page_number"],  # Include page number in the output fields
         )
-        print(f"------------------------------Query: {query}------------------------------")
-        print(f"------------------------------Search results: \n {search_results}------------------------------")
-        return [r["entity"]["text"] for r in search_results[0]]  # Return only the text of top K documents
+        print(f"\nSimilarity Search Query: {query}")
+        print(f"Search results: \n {search_results}\n")
+        return [{"text": r["entity"]["text"], "page_number": r["entity"]["page_number"]} for r in search_results[0]]  # Return both text and page number
+
 
     def delete_collection(self):
         if self.milvus_client.has_collection(collection_name=self.collection_name):
             self.milvus_client.drop_collection(collection_name=self.collection_name)
-            print(f"------------------------------Collection '{self.collection_name}' has been deleted.------------------------------")
+            print(f"\n\n------------------------------------------------------------Collection '{self.collection_name}' has been deleted.------------------------------")
         else:
-            print(f"------------------------------Collection '{self.collection_name}' does not exist.------------------------------")
+            print(f"------------------------------------------------------------Collection '{self.collection_name}' does not exist.------------------------------")
 
     # Utility function to encode text into embeddings
     def encode_text(self, texts):

@@ -3,35 +3,35 @@ from fuzzywuzzy import fuzz
 import os
 import csv
 
+def find_page_number(chunk, query):
+    
+    # Ensure 'chunk' is a string
+    if isinstance(chunk, list):
+        chunk = ' '.join(chunk)  # Convert list of strings to a single string
 
-def find_page_number(chunk, file_name, query):
-    # Path to the file in contract_files
-    file_path = os.path.join("contract_files", file_name)
+    contract_dir = "contract_files"
+    pdf_files = [f for f in os.listdir(contract_dir) if f.endswith('.pdf')]
 
-    # Check if the file exists
-    if not os.path.exists(file_path):
-        print(f"File {file_name} not found.")
+    if not pdf_files:
+        print("No PDF file found in the contract_files directory.")
         return None
 
-    # Open the PDF and iterate through each page using pypdf
+    file_path = os.path.join(contract_dir, pdf_files[0])
     pdf_reader = PdfReader(file_path)
     highest_score = 0
     best_page_no = -1
 
     for page_no, page in enumerate(pdf_reader.pages):
-        # Extract the text content from each page
         page_text = page.extract_text()
 
-        # Calculate the fuzzy matching ratio between the chunk and the page content
-        ratio = fuzz.partial_ratio(chunk.lower(), page_text.lower())
+        # Fuzzy matching between chunk and page content
+        ratio = fuzz.partial_ratio(chunk.lower(), page_text.lower())  # Ensure 'chunk' is a string
 
-        # Track the highest score and the corresponding page number
         if ratio > highest_score:
             highest_score = ratio
-            best_page_no = page_no + 1  # PDF pages are 1-indexed
+            best_page_no = page_no + 1
 
-    # After finding the best match, write to CSV
-    write_to_csv(file_name, query, best_page_no)
+    return int(best_page_no)
 
 
 def write_to_csv(file_name, query, page_no):

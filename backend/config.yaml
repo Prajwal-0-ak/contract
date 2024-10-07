@@ -10,20 +10,52 @@ sow_fields_to_extract:
   - inclusive_or_exclusive_gst
   - sow_value
   - sow_no
+  - type_of_billing
+  - po_number
+  - amendment_no
+
+query_for_each_field:
+  "client_company_name": "What is the name of the client company or recipient of services in the contract? The service provider is Next Wealth, so the other party is the client. Next Wealth is the service provider name so it is not the client company name."
+
+  "currency": "What is amount mentioned in the contract? Is it in USD($) OR INR(₹)?. Your response should be USD or INR."
+
+  "sow_start_date": "What is the start date or effective date of the Statement of Work (SOW) as mentioned in the document?. The format should be YYYY-MM-DD."
+
+  "sow_end_date": "When does the term of the Statement of Work (SOW) end? Identify the exact end date or any expiration date mentioned in the document. The format should be YYYY-MM-DD."
+
+  "cola": "What is the cost of living adjustment (COLA) mentioned in the contract? Your response should be a numerical value."
+
+  "credit_period": "Invoice will be raised on the last day of the month and the payment to be made net 45 days of receiving invoice. What is the credit period mentioned in the contract? Your response should be a numerical value."
+
+  "inclusive_or_exclusive_gst": "What are the terms regarding the inclusion or exclusion of GST in the pricing structure, as detailed in the amendment or Statement of Work (SOW)? Your response should be 'Inclusive' or 'Exclusive'."
+
+  "sow_value": "Can you extract the total monetary value or sow value specified for the services in the contract's Statement of Work (SOW) or any amendments? Your response should be a numerical value."
+
+  "sow_no": "What is the Statement of Work (SOW) number mentioned in the document? Your response should be the SOW number."
+
+  "type_of_billing": "What is the billing or project type mentioned in this contract? Your response should be 'Transaction Based' or 'FTE Based'. There is a short trick to identify this. If the payment model is based on 'per task,' 'per unit,' or 'per transaction' (e.g., 'per SKU,' 'per batch') then it is 'Transaction Based'. If it's based on 'per FTE' (Full-Time Equivalent), such as 'per FTE per hour' or 'per FTE per month' then it is 'FTE Based'. per keyword corresponds to Transaction Based and FTE corresponds to FTE Based."
+
+  "po_number": "What is the Purchase Order (PO) number mentioned in the document? Your response should be the PO number."
+
+  "amendment_no": "What is the Amendment Number mentioned in the document? Your response should be the Amendment Number. It is different from the SOW number."
   
 sow_queries:
   client_company_name:
+    - "Identify the name of the client company or recipient of services in the contract. The service provider is Next Wealth, so the other party is the client."
     - "What is the name of the recipient company? Next Wealth is the service provide name so extract the recipient company name."
 
   currency:
-    - "Dummy Text This is"
-    - "What is the currency mentioned in the contract?Is the currency is in USD($) OR INR(₹)?"
+    - "What is amount mentioned in the contract? Is it in USD($) OR INR(₹)?"
+    - "What is the currency unit in USD($) or INR(₹) paid for an FTE per month?"
+    - "What currency unit USD($) or INR(₹) are the payment terms in?"
 
   sow_start_date:
+    - "What is the start date or effective date of the Statement of Work (SOW) as mentioned in the document? Look for terms such as 'SOW Effective Date' or any specific commencement date"
     - "What is the start date of the Statement of Work (SOW)?"
 
   sow_end_date:
-    - "What is the end date of the Statement of Work (SOW)?"
+    - "When does the term of the Statement of Work (SOW) end? Identify the exact end date or any expiration date mentioned in the document. Look for phrases such as 'continue to be in force until' or 'terminate'."
+    - "What is the termination date of the SOW, including any specific conditions or notice period required for termination?"
     
   cola:
     - "What is the cost of living adjustment (COLA) mentioned in the contract?"
@@ -47,9 +79,27 @@ sow_queries:
     - "Extract the Statement of Work Number (SOW No.) associated with the agreement or amendment, usually found at the beginning of the document."
     - "In which section is the Statement of Work number (SOW No.) mentioned? It's typically present in the opening paragraph or title of the agreement."
 
+  type_of_billing:
+    - "What is the billing or project type mentioned in this contract? Identify if the payment model is based on 'per task,' 'per unit,' or 'per transaction' (e.g., 'per SKU,' 'per batch') or if it's based on 'per FTE' (Full-Time Equivalent), such as 'per FTE per hour' or 'per FTE per month'."
+    - "Does the contract mention a billing structure based on 'per transaction' (e.g., 'per run,' 'per batch,' 'per unit') or a 'per FTE' model (e.g., 'per FTE per hour,' 'per FTE per month')? Extract the relevant details indicating whether the project is transaction-based or FTE-based."
+    - "Identify the project or billing type in the contract. Is it based on 'per task,' 'per item,' 'per transaction' pricing (e.g., 'per SKU,' 'per batch') or 'FTE-based' pricing (e.g., 'per FTE per month' or 'per FTE per hour')? Extract the section that describes the billing model."
+
+  po_number:
+  - "What is the Purchase Order (PO) number mentioned in the document? Look for fields labeled as 'PURCHASE ORDER #,' 'PO NUMBER,' or 'PURCHASE ORDER', typically accompanied by order dates or other related information."
+
+  - "Can you extract the PO number from the contract? It might be listed under terms like 'PURCHASE ORDER #,' 'PO NUMBER,' or a similar identifier, often followed by a date or other order details."
+
+  - "Identify the Purchase Order (PO) number in the contract. It could appear as 'PURCHASE ORDER #,' 'PO NUMBER,' or related terms and may be located alongside fields like 'ORDER DATE' or 'PAYMENT TERMS.'"
+
+  amendment_no:
+  - "What is the Amendment Number mentioned in the document? Look for terms like 'Amendment #,' 'AMENDMENT NO,' or similar phrases, which typically appear alongside the Statement of Work Number or related contract details."
+
+  - "Can you identify the Amendment Number in the contract? It may be found as 'Amendment #,' 'AMENDMENT NO,' or other variations, often associated with a Statement of Work Number or contract value adjustments."
+
+  - "Extract the Amendment Number from the document. It might be indicated as 'Amendment #,' 'AMENDMENT NO,' or relevant terms and is usually linked to contract changes or the Statement of Work Number."
+
 prompt_template: |
-  You are an AI assistant specializing in extracting specific fields from business contracts. 
-  Your task is to retrieve the requested field value from the provided contract content.
+  You are an AI assistant specializing in extracting specific fields from business contracts. So, your task is to retrieve the requested field value from the provided contract content.
 
   Context:
   - The documents you are analyzing are legally binding contracts between businesses or entities.
@@ -70,32 +120,21 @@ prompt_template: |
   And then based on the provided field name and the relevant contract content, extract the value for the specified field like so:
   
   <extracted>
-  {{ "value": "[Extracted value]", "field_value_found": true }} if the value is found.
+  {{ "value": "[Extracted value]", "field_value_found": true, "page_number": "[Page No of The Chunk In Which The Extracted Field Is Present]" }} if the value is found.
   </extracted>
   
-  2. Overall, this SHOULD be your OUTPUT FORMAT:
+  This SHOULD be your OUTPUT FORMAT.
   
-  <steps>
-  Step 1:
-  <your thoughts>
-  
-  Step2:
-  <your thoughts>
-  ...
-  </steps>
-  
-  <extracted>
-  {{ "value": "[Extracted value]", "field_value_found": true }} if the value is found.
-  </extracted>
-  
-  3. If the value is not present in the provided content or cannot be determined, return:
-  {{ "value": "null", "field_value_found": false }}.  
-  5. Return the output in plain text, not as a code cell or in markdown.
-  6. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
-  7. Ensure your response is based only on the provided contract content and related field.
-  8. Return the output ONLY in the format described above.
+  2. If the value is not present in the provided content or cannot be determined, return:
+  {{ "value": "null", "field_value_found": false, "page_number": "0" }}.
+  3. Make sure page_number corresponds to the chunk where the field value is located. Make sure single page_number is returned.  
+  4. Return the output in plain text, not as a code cell or in markdown.
+  5. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
+  6. Ensure your response is based only on the provided contract content and related field.
+  7. Return the output ONLY in the format described above.
 
   Required Field: {required_field}
+  Query: {query}
   Relevant Contract Content: {similar_content}
 
   The output should be in the provided format ONLY.
