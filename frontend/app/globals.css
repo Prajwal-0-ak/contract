@@ -26,6 +26,24 @@ body {
   }
 }
 
+@media (min-width: 768px) {
+  .grid-cols-1 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pdf-viewer {
+    width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
+  }
+}
+
+@media (max-width: 767px) {
+  .pdf-viewer {
+    display: none;
+  }
+}
+
 /* components/LoadingSpinner.css */
 .spinner-container {
   display: flex;
