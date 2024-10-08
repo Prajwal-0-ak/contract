@@ -27,7 +27,7 @@ query_for_each_field:
 
   "credit_period": "Invoice will be raised on the last day of the month and the payment to be made net 45 days of receiving invoice. What is the credit period mentioned in the contract? Your response should be a numerical value."
 
-  "inclusive_or_exclusive_gst": "What are the terms regarding the inclusion or exclusion of GST in the pricing structure, as detailed in the amendment or Statement of Work (SOW)? Your response should be 'Inclusive' or 'Exclusive'."
+  "inclusive_or_exclusive_gst": "What are the terms regarding the inclusion or exclusion of GST in the pricing structure, as detailed in the amendment or Statement of Work (SOW)? Your response should be 'Inclusive' or 'Exclusive'. Only if, Remember only if the content is not sufficient to determine the answer, return 'Exclusive'. But never return NULL for this field."
 
   "sow_value": "Can you extract the total monetary value or sow value specified for the services in the contract's Statement of Work (SOW) or any amendments? Your response should be a numerical value."
 
@@ -126,12 +126,17 @@ prompt_template: |
   This SHOULD be your OUTPUT FORMAT.
   
   2. If the value is not present in the provided content or cannot be determined, return:
-  {{ "value": "null", "field_value_found": false, "page_number": "0" }}.
+    <extracted>
+      {{ "value": "null", "field_value_found": false, "page_number": "0" }}
+    </extracted>
   3. Make sure page_number corresponds to the chunk where the field value is located. Make sure single page_number is returned.  
   4. Return the output in plain text, not as a code cell or in markdown.
   5. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
   6. Ensure your response is based only on the provided contract content and related field.
   7. Return the output ONLY in the format described above.
+
+  points_to_remember: 
+  - If the Required Field is "inclusive_or_exclusive_gst" and Only if the content does not provide a clear answer, return "Exclusive" as the default response.
 
   Required Field: {required_field}
   Query: {query}

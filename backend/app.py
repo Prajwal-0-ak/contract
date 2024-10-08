@@ -39,13 +39,20 @@ def process_files_in_directory(directory: str) -> None:
 
             for field in config["sow_fields_to_extract"]:
                 field_value_found = False
-                query_for_similarity_search = config["query_for_each_field"].get(field, "")
+                # query_for_similarity_search = config["query_for_each_field"].get(field, "")
                 query_for_llm = config["query_for_each_field"].get(field, "")
 
                 for query in config["sow_queries"][field]:
+                    # Debugging Code : Printing all the fields and queries
+
+                    # print(f"Field: {field}")
+                    # print(f"Query: {query}")
+                    # print(f"Query for Similarity Search: {query_for_similarity_search}")
+                    # print(f"Query for LLM: {query_for_llm}")
+
                     if not field_value_found:
                         try:
-                            similar_content = db_manager.retrieve_similar_content(query_for_similarity_search, k=2)
+                            similar_content = db_manager.retrieve_similar_content(query, k=2)
                             response = extractor.extract_field_value(field, similar_content, query=query_for_llm)
                             print(f"Extracted field '{field}': {response}")
                         except Exception as e:

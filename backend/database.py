@@ -15,7 +15,6 @@ class DatabaseManager:
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoModel.from_pretrained(self.model_name)
         self.milvus_client = MilvusClient(self.milvus_uri)
-        self.setup_milvus()
     
     def setup_milvus(self):
 

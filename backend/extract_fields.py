@@ -30,7 +30,7 @@ class ExtractField:
             required_field=required_field, similar_content=similar_content, query=query
         )
 
-        # print(f"\nQuery For LLM: {query}")
+        print(f"\nQuery For LLM: {query}")
 
         # print(f"------------------------------Prompt: {prompt}------------------------------")
 
@@ -47,8 +47,12 @@ class ExtractField:
             # Extract the content from the response
             response_text = response.choices[0].message.content.strip()
 
+            print(f"Response Text: {response_text}")
+
             try:
                 match = re.search(r'<extracted>(.*?)</extracted>', response_text, re.DOTALL)
+
+                print(f"MATCH: {match}")
 
                 if match:
                     extracted_json_text = match.group(1).strip()

@@ -29,21 +29,23 @@ export default function ContractForm() {
   // Form state
   const [formData, setFormData] = useState({
     remark: "",
-    gst: "exclusive",
     subContractClause: "",
-    sowValue: "",
   });
 
   // API response state
   const [apiData, setApiData] = useState({
-    account_name: "",
+    client_company_name: "",
     currency: "",
     sow_start_date: "",
     sow_end_date: "",
-    sow_number: "",
+    sow_no: "",
+    sow_value: "",
     cola: "",
-    total_fte: "",
     credit_period: "",
+    inclusive_or_exclusive_gst: "",
+    type_of_billing: "",
+    po_number: "",
+    amendment_no: "",
   });
 
   // File upload state
@@ -52,6 +54,24 @@ export default function ContractForm() {
   const [isDownloadReady, setIsDownloadReady] = useState(false);
   const [excelFile, setExcelFile] = useState<Blob | null>(null);
   const [pdfType, setPdfType] = useState("SOW");
+
+  const [fieldPageMapping, setFieldPageMapping] = useState<
+    Record<string, string>
+  >({});
+
+  const mapFieldToPageNumber = (
+    extractedData: { field: string; value: string; page_num: string }[]
+  ) => {
+    const mapping: Record<string, string> = {};
+    extractedData.forEach((item) => {
+      if (item.value !== "null") {
+        mapping[item.field] = item.page_num;
+      }
+    });
+    setFieldPageMapping(mapping);
+
+    console.log("Field to Page Mapping:", mapping);
+  };
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,6 +97,7 @@ export default function ContractForm() {
     }
   };
 
+  // Handle PDF type change
   const handlePdfTypeChange = (value: string) => {
     setPdfType(value);
   };
@@ -100,9 +121,36 @@ export default function ContractForm() {
           const result = await response.json();
           console.log("File uploaded successfully:", result);
 
-          setApiData(result.extracted_data);
+          const extractedData = result.extracted_data.reduce(
+            (
+              acc: Record<string, string>,
+              curr: { field: string; value: string }
+            ) => {
+              acc[curr.field] = curr.value;
+              return acc;
+            },
+            {}
+          );
 
-          const allData = { ...formData, ...result.extracted_data };
+          mapFieldToPageNumber(result.extracted_data);
+
+          setApiData({
+            client_company_name: extractedData["client_company_name"] || "",
+            currency: extractedData["currency"] || "",
+            sow_start_date: extractedData["sow_start_date"] || "",
+            sow_end_date: extractedData["sow_end_date"] || "",
+            sow_no: extractedData["sow_no"] || "",
+            cola: extractedData["cola"] || "",
+            sow_value: extractedData["sow_value"] || "",
+            credit_period: extractedData["credit_period"] || "",
+            inclusive_or_exclusive_gst:
+              extractedData["inclusive_or_exclusive_gst"] || "",
+            type_of_billing: extractedData["type_of_billing"] || "",
+            po_number: extractedData["po_number"] || "",
+            amendment_no: extractedData["amendment_no"] || "",
+          });
+
+          const allData = { ...formData, ...extractedData };
           const ws = XLSX.utils.json_to_sheet([allData]);
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "Contract Data");
@@ -151,7 +199,7 @@ export default function ContractForm() {
   return (
     <div className="min-h-screen bg-black">
       <nav>
-        <Button onClick={() => router.push('/chat')}>Chat</Button>
+        <Button onClick={() => router.push("/chat")}>Chat</Button>
       </nav>
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
@@ -173,21 +221,6 @@ export default function ContractForm() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="gst">GST</Label>
-                    <Select
-                      onValueChange={handleSelectChange}
-                      value={formData.gst}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select GST type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="exclusive">Exclusive</SelectItem>
-                        <SelectItem value="inclusive">Inclusive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
                     <Label htmlFor="subContractClause">
                       Sub Contract Clause
                     </Label>
@@ -195,15 +228,6 @@ export default function ContractForm() {
                       id="subContractClause"
                       name="subContractClause"
                       value={formData.subContractClause}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="sowValue">SOW Value</Label>
-                    <Input
-                      id="sowValue"
-                      name="sowValue"
-                      value={formData.sowValue}
                       onChange={handleInputChange}
                     />
                   </div>
