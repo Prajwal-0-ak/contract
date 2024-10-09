@@ -1,14 +1,21 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from 'pdfjs-dist';
+import { PDFDocumentProxy } from 'pdfjs-dist';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/components/ui/table";
 import { toast } from "sonner";
 
-GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+let getDocument: any;
+let GlobalWorkerOptions: any;
 
+if (typeof window !== "undefined") {
+  const pdfjsLib = require("pdfjs-dist");
+  getDocument = pdfjsLib.getDocument;
+  GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions;
+  GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+}
 interface PDFViewerProps {
   file: File | null;
   currentPage: number;

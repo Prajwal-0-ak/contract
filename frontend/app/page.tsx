@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { Separator } from "@/components/ui/separator";
-import PDFViewer from "@/components/PDFViewer";
 import ContractForm from "@/components/ContractForm";
 import FileUpload from "@/components/FileUpload";
 import ContractDataTable from "@/components/ContractDataTable";
+import dynamic from 'next/dynamic';
+
+const PDFViewer = dynamic(() => import('../components/PDFViewer'), { ssr: false });
 
 interface ExtractedDataItem {
   field: string;
