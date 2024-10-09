@@ -1,29 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { Separator } from "@/components/ui/separator";
 import { useRouter } from "next/navigation";
 import PDFViewer from "@/components/PDFViewer";
+import ContractForm from "@/components/ContractForm";
+import FileUpload from "@/components/FileUpload";
+import ContractDataTable from "@/components/ContractDataTable";
 
 interface ExtractedDataItem {
   field: string;
@@ -46,14 +32,12 @@ interface ApiData {
   amendment_no: string;
 }
 
-export default function ContractForm() {
-  // Form state
+export default function ContractPage() {
   const [formData, setFormData] = useState({
     remark: "",
     subContractClause: "",
   });
 
-  // API response state
   const [apiData, setApiData] = useState<ApiData>({
     client_company_name: "",
     currency: "",
@@ -69,19 +53,21 @@ export default function ContractForm() {
     amendment_no: "",
   });
 
-  // File upload state
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDownloadReady, setIsDownloadReady] = useState(false);
   const [excelFile, setExcelFile] = useState<Blob | null>(null);
   const [pdfType, setPdfType] = useState("SOW");
-
   const [fieldPageMapping, setFieldPageMapping] = useState<Record<string, string>>({});
-
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [editingField, setEditingField] = useState<{ name: string; value: string; page: number; } | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const closeDialogRef = useRef<HTMLButtonElement>(null);
 
-  // Handle form input changes
+  const router = useRouter();
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prevData) => ({
@@ -90,15 +76,6 @@ export default function ContractForm() {
     }));
   };
 
-  // Handle select changes
-  const handleSelectChange = (value: string) => {
-    setFormData((prevData) => ({
-      ...prevData,
-      gst: value,
-    }));
-  };
-
-  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const selectedFile = e.target.files[0];
@@ -108,16 +85,13 @@ export default function ContractForm() {
     }
   };
 
-  // Handle PDF type change
   const handlePdfTypeChange = (value: string) => {
     setPdfType(value);
   };
 
-  // Handle file upload
   const handleFileUpload = async () => {
     if (file) {
       setIsUploading(true);
-
       try {
         const formData = new FormData();
         formData.append("file", file);
@@ -126,8 +100,7 @@ export default function ContractForm() {
         const response = await fetch("http://localhost:8000/upload", {
           method: "POST",
           body: formData,
-          // Add this line to include credentials
-          credentials: 'include',
+          credentials: "include",
         });
 
         if (!response.ok) {
@@ -137,24 +110,8 @@ export default function ContractForm() {
         const result = await response.json();
         console.log("Response from server:", result);
 
-        // Process the extracted data
         const extractedData = result.extracted_data as ExtractedDataItem[];
-        
-        const newApiData: ApiData = {
-          client_company_name: "",
-          currency: "",
-          sow_start_date: "",
-          sow_end_date: "",
-          sow_no: "",
-          sow_value: "",
-          cola: "",
-          credit_period: "",
-          inclusive_or_exclusive_gst: "",
-          type_of_billing: "",
-          po_number: "",
-          amendment_no: "",
-        };
-
+        const newApiData: ApiData = { ...apiData };
         const newFieldPageMapping: Record<string, string> = {};
 
         extractedData.forEach((item) => {
@@ -182,12 +139,10 @@ export default function ContractForm() {
         toast.success("File uploaded successfully");
       } catch (error) {
         console.error("Error uploading file:", error);
-        if (error instanceof TypeError && error.message.includes('NetworkError')) {
+        if (error instanceof TypeError && error.message.includes("NetworkError")) {
           toast.error("Network error. Please check your connection and try again.");
         } else {
-          toast.error(
-            `An error occurred while uploading the file: ${(error as Error).message || 'Unknown error'}`
-          );
+          toast.error(`An error occurred while uploading the file: ${(error as Error).message || "Unknown error"}`);
         }
       } finally {
         setIsUploading(false);
@@ -195,7 +150,6 @@ export default function ContractForm() {
     }
   };
 
-  // Handle Excel download
   const handleDownload = () => {
     if (excelFile) {
       const url = URL.createObjectURL(excelFile);
@@ -209,7 +163,49 @@ export default function ContractForm() {
     }
   };
 
-  const router = useRouter();
+  const handleEditField = (field: { name: string; value: string; page: number }) => {
+    setEditingField(field);
+    setIsDialogOpen(true);
+  };
+
+  const handleSaveEdit = (name: string, newValue: string, newPage: string) => {
+    if (!newValue.trim() || !newPage.trim()) {
+      toast.error("Please fill in both value and page number.");
+      return;
+    }
+
+    const pageNumber = parseInt(newPage, 10);
+    if (isNaN(pageNumber) || pageNumber < 1) {
+      toast.error("Please enter a valid page number.");
+      return;
+    }
+
+    if (name in apiData) {
+      setApiData((prev) => ({ ...prev, [name]: newValue }));
+    } else if (name in formData) {
+      setFormData((prev) => ({ ...prev, [name]: newValue }));
+    }
+    setFieldPageMapping((prev) => ({ ...prev, [name]: pageNumber.toString() }));
+    setEditingField(null);
+    setIsDialogOpen(false);
+    closeDialogRef.current?.click();
+    toast.success("Field updated successfully");
+  };
+
+  const fields = [
+    { name: "remark", page: 0, value: formData.remark },
+    { name: "subContractClause", page: 0, value: formData.subContractClause },
+    ...Object.entries(fieldPageMapping).map(([field, pageStr]) => ({
+      name: field,
+      page: parseInt(pageStr, 10) || 0,
+      value: apiData[field as keyof ApiData] || "",
+    })),
+  ];
+
+  const handleFieldClick = (page: number) => {
+    setCurrentPage(page === 0 ? 1 : page);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-white shadow-sm">
@@ -223,9 +219,7 @@ export default function ContractForm() {
               </div>
             </div>
             <div className="flex items-center">
-              <Button onClick={() => router.push("/chat")}>
-                Chat
-              </Button>
+              <Button onClick={() => router.push("/chat")}>Chat</Button>
             </div>
           </div>
         </div>
@@ -246,89 +240,29 @@ export default function ContractForm() {
                   Contract Form
                 </h2>
 
-                <form className="space-y-6 text-black">
-                  <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
-                    <div>
-                      <Label htmlFor="remark">Remark</Label>
-                      <Input
-                        id="remark"
-                        name="remark"
-                        value={formData.remark}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="subContractClause">
-                        Sub Contract Clause
-                      </Label>
-                      <Input
-                        id="subContractClause"
-                        name="subContractClause"
-                        value={formData.subContractClause}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  </div>
-                </form>
+                <ContractForm formData={formData} handleInputChange={handleInputChange} />
 
-                <div className="mt-8">
-                  <Label htmlFor="file-upload">Upload PDF</Label>
-                  <div className="mt-1 flex items-center gap-x-4">
-                    <Input
-                      id="file-upload"
-                      type="file"
-                      onChange={handleFileChange}
-                      accept=".pdf"
-                    />
-                    <Select value={pdfType} onValueChange={handlePdfTypeChange}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Select PDF type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NDA">NDA</SelectItem>
-                        <SelectItem value="SOW">SOW</SelectItem>
-                        <SelectItem value="MSA">MSA</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    onClick={handleFileUpload}
-                    disabled={!file || isUploading}
-                    className="mt-4"
-                  >
-                    {isUploading ? "Uploading..." : "Upload PDF"}
-                  </Button>
-                </div>
+                <FileUpload
+                  handleFileChange={handleFileChange}
+                  pdfType={pdfType}
+                  handlePdfTypeChange={handlePdfTypeChange}
+                  handleFileUpload={handleFileUpload}
+                  file={file}
+                  isUploading={isUploading}
+                />
 
                 <Separator className="my-8" />
 
-                <div className="mt-8 overflow-x-auto">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">
-                    Contract Data
-                  </h2>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Field</TableHead>
-                        <TableHead>Value</TableHead>
-                        <TableHead>Page No</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Object.entries({ ...formData, ...apiData }).map(
-                        ([key, value]) => (
-                          <TableRow key={key}>
-                            <TableCell className="font-medium">{key}</TableCell>
-                            <TableCell>{value}</TableCell>
-                            <TableCell>
-                              {fieldPageMapping[key] || "N/A"}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                <ContractDataTable
+                  fields={fields}
+                  handleEditField={handleEditField}
+                  handleSaveEdit={handleSaveEdit}
+                  editingField={editingField}
+                  setEditingField={setEditingField}
+                  isDialogOpen={isDialogOpen}
+                  setIsDialogOpen={setIsDialogOpen}
+                  closeDialogRef={closeDialogRef}
+                />
 
                 {isDownloadReady && (
                   <div className="mt-8">
@@ -340,7 +274,12 @@ export default function ContractForm() {
 
             {showPdfViewer && (
               <div className="w-full lg:w-1/2">
-                <PDFViewer file={pdfFile} />
+                <PDFViewer
+                  file={pdfFile}
+                  currentPage={currentPage}
+                  setCurrentPage={setCurrentPage}
+                  fields={fields}
+                />
               </div>
             )}
           </div>
