@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from 'pdfjs-dist';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,13 +44,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
     }
   }, [file, setCurrentPage]);
 
-  useEffect(() => {
-    if (pdfDoc) {
-      renderPage();
-    }
-  }, [pdfDoc, currentPage, scale]);
-
-  const renderPage = async () => {
+  const renderPage = useCallback(async () => {
     if (isRendering || !pdfDoc || !canvasRef.current) return;
     setIsRendering(true);
 
@@ -68,13 +62,18 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
     } catch (err) {
       console.error('Error rendering page:', err);
       if (err instanceof Error && err.message.includes('Invalid page request')) {
-        // Silently reset to the first page if an invalid page is requested
         setCurrentPage(1);
       }
     } finally {
       setIsRendering(false);
     }
-  };
+  }, [pdfDoc, currentPage, scale, setCurrentPage, isRendering]);
+
+  useEffect(() => {
+    if (pdfDoc) {
+      renderPage();
+    }
+  }, [pdfDoc, currentPage, scale, renderPage]);
 
   const handlePrevPage = () => {
     if (currentPage > 1) {

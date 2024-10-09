@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { Separator } from "@/components/ui/separator";
-import { useRouter } from "next/navigation";
 import PDFViewer from "@/components/PDFViewer";
 import ContractForm from "@/components/ContractForm";
 import FileUpload from "@/components/FileUpload";
@@ -65,8 +64,6 @@ export default function ContractPage() {
   const [editingField, setEditingField] = useState<{ name: string; value: string; page: number; } | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const closeDialogRef = useRef<HTMLButtonElement>(null);
-
-  const router = useRouter();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -201,10 +198,6 @@ export default function ContractPage() {
       value: apiData[field as keyof ApiData] || "",
     })),
   ];
-
-  const handleFieldClick = (page: number) => {
-    setCurrentPage(page === 0 ? 1 : page);
-  };
 
   return (
     <div className="min-h-screen bg-gray-100">
