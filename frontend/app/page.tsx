@@ -5,12 +5,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { Separator } from "@/components/ui/separator";
+import PDFViewer from "@/components/PDFViewer";
 import ContractForm from "@/components/ContractForm";
 import FileUpload from "@/components/FileUpload";
 import ContractDataTable from "@/components/ContractDataTable";
-import dynamic from 'next/dynamic';
-
-const PDFViewer = dynamic(() => import('../components/PDFViewer'), { ssr: false });
 
 interface ExtractedDataItem {
   field: string;
@@ -191,13 +189,17 @@ export default function ContractPage() {
     toast.success("Field updated successfully");
   };
 
+  const handleFieldClick = (page: number) => {
+    setCurrentPage(page);
+  };
+
   const fields = [
     { name: "remark", page: 0, value: formData.remark },
     { name: "subContractClause", page: 0, value: formData.subContractClause },
-    ...Object.entries(fieldPageMapping).map(([field, pageStr]) => ({
+    ...Object.entries(apiData).map(([field, value]) => ({
       name: field,
-      page: parseInt(pageStr, 10) || 0,
-      value: apiData[field as keyof ApiData] || "",
+      page: parseInt(fieldPageMapping[field] || "0", 10),
+      value: value || "",
     })),
   ];
 
@@ -257,6 +259,7 @@ export default function ContractPage() {
                   isDialogOpen={isDialogOpen}
                   setIsDialogOpen={setIsDialogOpen}
                   closeDialogRef={closeDialogRef}
+                  onFieldClick={handleFieldClick}
                 />
 
                 {isDownloadReady && (
@@ -274,6 +277,7 @@ export default function ContractPage() {
                   currentPage={currentPage}
                   setCurrentPage={setCurrentPage}
                   fields={fields}
+                  onFieldClick={handleFieldClick}
                 />
               </div>
             )}

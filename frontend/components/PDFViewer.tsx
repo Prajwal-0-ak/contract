@@ -1,46 +1,37 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PDFDocumentProxy, PDFDocumentLoadingTask, GlobalWorkerOptions } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from 'pdfjs-dist';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/components/ui/table";
 import { toast } from "sonner";
 
-// Use a type for the dynamic import
-type PDFJSType = typeof import('pdfjs-dist');
-let pdfjsLib: PDFJSType;
-
-if (typeof window !== "undefined") {
-  // Use dynamic import for pdfjs-dist
-  import('pdfjs-dist').then((pdfjs: PDFJSType) => {
-    pdfjsLib = pdfjs;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-  });
-}
+GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface PDFViewerProps {
   file: File | null;
   currentPage: number;
   setCurrentPage: (page: number) => void;
   fields: { name: string; page: number; value: string }[];
+  onFieldClick: (page: number) => void;
 }
 
-const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage, fields }) => {
+const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage, fields, onFieldClick }) => {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
-  const [scale, setScale] = useState<number>(1.25); // Reduced default size
+  const [scale, setScale] = useState<number>(1.25);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [searchPage, setSearchPage] = useState<string>('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (file && pdfjsLib) {
+    if (file) {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const data = e.target?.result as ArrayBuffer;
         try {
-          const loadingTask: PDFDocumentLoadingTask = pdfjsLib.getDocument({ data });
+          const loadingTask = getDocument({ data });
           const pdf = await loadingTask.promise;
           setPdfDoc(pdf);
           setTotalPages(pdf.numPages);
@@ -97,12 +88,10 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
     }
   };
   
-  const handleZoomIn = () => setScale(scale + 0.25);
+  const handleZoomIn = () => setScale(prevScale => prevScale + 0.25);
   
   const handleZoomOut = () => {
-    if (scale > 0.5) {
-      setScale(scale - 0.25);
-    }
+    setScale(prevScale => (prevScale > 0.5 ? prevScale - 0.25 : prevScale));
   };
 
   const handleSearchPageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +108,14 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
     }
   };
 
+  const handleFieldClick = (page: number) => {
+    if (page > 0 && page <= totalPages) {
+      onFieldClick(page);
+    }
+  };
+
+  const fieldsOnCurrentPage = fields.filter(field => field.page === currentPage);
+
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">PDF Viewer</h2>
@@ -132,7 +129,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
           onChange={handleSearchPageChange}
           className="border p-2 mr-2 w-24"
           placeholder={`Page (1-${totalPages})`}
-          style={{ appearance: 'textfield' }} // Removes the spinner arrows
+          style={{ appearance: 'textfield' }}
         />
         <Button onClick={handlePageSearch} disabled={isRendering || searchPage === ''}>
           Go
@@ -164,31 +161,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
       <div className="border border-gray-300 rounded-lg overflow-auto">
         <canvas ref={canvasRef} className="mx-auto"></canvas>
       </div>
-
-      {fields.length > 0 && (
-        <div className="mt-4">
-          <h3 className="text-xl font-semibold mb-2">Fields on Page {currentPage}</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Field Name</TableHead>
-                <TableHead>Value</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {fields
-                .filter(field => field.page === currentPage)
-                .map((field, index) => (
-                  <TableRow key={index} className="cursor-default">
-                    <TableCell>{field.name}</TableCell>
-                    <TableCell>{field.value}</TableCell>
-                  </TableRow>
-                ))
-              }
-            </TableBody>
-          </Table>
-        </div>
-      )}
     </div>
   );
 };

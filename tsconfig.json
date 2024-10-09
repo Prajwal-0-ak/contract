@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    // ... other options
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  // ... other configurations
+}
