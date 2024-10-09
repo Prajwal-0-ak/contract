@@ -1,21 +1,24 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PDFDocumentProxy } from 'pdfjs-dist';
+import { PDFDocumentProxy, PDFDocumentLoadingTask, GlobalWorkerOptions } from 'pdfjs-dist';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/components/ui/table";
 import { toast } from "sonner";
 
-let getDocument: any;
-let GlobalWorkerOptions: any;
+// Use a type for the dynamic import
+type PDFJSType = typeof import('pdfjs-dist');
+let pdfjsLib: PDFJSType;
 
 if (typeof window !== "undefined") {
-  const pdfjsLib = require("pdfjs-dist");
-  getDocument = pdfjsLib.getDocument;
-  GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions;
-  GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  // Use dynamic import for pdfjs-dist
+  import('pdfjs-dist').then((pdfjs: PDFJSType) => {
+    pdfjsLib = pdfjs;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+  });
 }
+
 interface PDFViewerProps {
   file: File | null;
   currentPage: number;
@@ -32,12 +35,12 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (file) {
+    if (file && pdfjsLib) {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const data = e.target?.result as ArrayBuffer;
         try {
-          const loadingTask = getDocument({ data });
+          const loadingTask: PDFDocumentLoadingTask = pdfjsLib.getDocument({ data });
           const pdf = await loadingTask.promise;
           setPdfDoc(pdf);
           setTotalPages(pdf.numPages);
