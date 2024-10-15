@@ -6,7 +6,6 @@ from typing import Dict
 import yaml
 import csv
 
-# Import your custom classes for document processing and field extraction
 from process_docs import ProcessDocuments
 from database import DatabaseManager
 from extract_fields import ExtractField
