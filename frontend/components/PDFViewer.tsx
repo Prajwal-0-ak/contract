@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions, PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableHeader, TableBody, TableRow, TableCell, TableHead } from "@/components/ui/table";
 import { toast } from "sonner";
 
 GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -76,18 +75,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
     }
   }, [pdfDoc, currentPage, scale, renderPage]);
 
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-  
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-  
   const handleZoomIn = () => setScale(prevScale => prevScale + 0.25);
   
   const handleZoomOut = () => {
@@ -110,33 +97,43 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
 
   const handleFieldClick = (page: number) => {
     if (page > 0 && page <= totalPages) {
+      setCurrentPage(page);
       onFieldClick(page);
     }
   };
 
-  const fieldsOnCurrentPage = fields.filter(field => field.page === currentPage);
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-lg p-4">
       <h2 className="text-2xl font-bold text-gray-900 mb-4">PDF Viewer</h2>
 
-      <div className="flex mb-4">
-        <Input
-          type="number"
-          min="1"
-          max={totalPages}
-          value={searchPage}
-          onChange={handleSearchPageChange}
-          className="border p-2 mr-2 w-24"
-          placeholder={`Page (1-${totalPages})`}
-          style={{ appearance: 'textfield' }}
-        />
-        <Button onClick={handlePageSearch} disabled={isRendering || searchPage === ''}>
-          Go
-        </Button>
-      </div>
-
       <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center">
+          <Input
+            type="number"
+            min="1"
+            max={totalPages}
+            value={searchPage}
+            onChange={handleSearchPageChange}
+            className="border p-2 mr-2 w-24"
+            placeholder={`Page (1-${totalPages})`}
+            style={{ appearance: 'textfield' }}
+          />
+          <Button onClick={handlePageSearch} disabled={isRendering || searchPage === ''}>
+            Go
+          </Button>
+        </div>
         <div>
           <Button onClick={handlePrevPage} disabled={currentPage === 1 || isRendering} className="mr-2">
             Previous
@@ -158,7 +155,7 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
         </div>
       </div>
 
-      <div className="border border-gray-300 rounded-lg overflow-auto">
+      <div className="border border-gray-300 rounded-lg overflow-auto" style={{ height: '600px' }}>
         <canvas ref={canvasRef} className="mx-auto"></canvas>
       </div>
     </div>

@@ -222,7 +222,7 @@ export default function ContractPage() {
         </div>
       </nav> */}
 
-      <main className="max-w-8xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-8xl mx-auto py-3 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
           <div className="flex flex-col lg:flex-row">
             <div
