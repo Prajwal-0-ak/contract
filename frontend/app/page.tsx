@@ -276,8 +276,6 @@ export default function ContractPage() {
                   file={pdfFile}
                   currentPage={currentPage}
                   setCurrentPage={setCurrentPage}
-                  fields={fields}
-                  onFieldClick={handleFieldClick}
                 />
               </div>
             )}

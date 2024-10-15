@@ -1,13 +1,17 @@
 services:
   frontend:
     container_name: contract-frontend
-    image: contract-frontend-v1
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
 
   backend:
     container_name: contract-backend
-    image: contract-backend-v1
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     depends_on:

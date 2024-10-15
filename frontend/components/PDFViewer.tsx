@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getDocument, GlobalWorkerOptions, PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions, PDFDocumentProxy } from 'pdfjs-dist';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -12,11 +12,9 @@ interface PDFViewerProps {
   file: File | null;
   currentPage: number;
   setCurrentPage: (page: number) => void;
-  fields: { name: string; page: number; value: string }[];
-  onFieldClick: (page: number) => void;
 }
 
-const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage, fields, onFieldClick }) => {
+const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage}) => {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [scale, setScale] = useState<number>(1.25);
   const [totalPages, setTotalPages] = useState<number>(0);
@@ -92,13 +90,6 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
       setSearchPage('');
     } else {
       toast.error(`Please enter a valid page number between 1 and ${totalPages}`);
-    }
-  };
-
-  const handleFieldClick = (page: number) => {
-    if (page > 0 && page <= totalPages) {
-      setCurrentPage(page);
-      onFieldClick(page);
     }
   };
 
