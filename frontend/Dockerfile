@@ -14,13 +14,10 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
-# Set environment variable to disable telemetry
-ENV NEXT_TELEMETRY_DISABLED 1
-
 # Build the Next.js application
 RUN npm run build
 
-# Stage 2: Run the application
+# Stage 2: Serve the application
 FROM node:20-alpine
 
 WORKDIR /app
