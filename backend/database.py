@@ -5,15 +5,17 @@ from pymilvus import MilvusClient
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 class DatabaseManager:
-    def __init__(self, model_name: str, milvus_uri: str, collection_name: str, dimension: int):
+    def __init__(self, model_name: str, milvus_uri: str, collection_name: str, dimension: int, chunk_size: int, chunk_overlap: int = 25):
         self.model_name = model_name
         self.milvus_uri = milvus_uri
         self.collection_name = collection_name
         self.dimension = dimension
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
         self.inference_batch_size = 64
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModel.from_pretrained(self.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, trust_remote_code=True)
+        self.model = AutoModel.from_pretrained(self.model_name, trust_remote_code=True)
         self.milvus_client = MilvusClient(self.milvus_uri)
     
     def setup_milvus(self):
@@ -35,7 +37,7 @@ class DatabaseManager:
 
         print("------------------------------------------------------------Chunking and inserting text content into Milvus collection------------------------------")
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=512, chunk_overlap=10, separators=["\n\n", "\n", " ", ""]
+            chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap, separators=["\n\n", "\n", " ", ""]
         )
 
         data_list = []

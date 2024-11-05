@@ -1,32 +1,33 @@
 import os
 import yaml
-from fastapi import HTTPException
-import csv
 
-# Import your custom classes for document processing and field extraction
 from process_docs import ProcessDocuments
 from database import DatabaseManager
 from extract_fields import ExtractField
+from utils.util import convert_list_to_xml, rerank_chunks
+import json
 
-# Load configuration
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
 UPLOAD_DIR = "contract_files"
-OUTPUT_CSV = "extracted_data.csv"
 
 # Initialize classes
 process_docs = ProcessDocuments()
+
 db_manager = DatabaseManager(
-    model_name="BAAI/bge-large-en-v1.5",
+    model_name=config["embedding_model_name"],
     milvus_uri="./huggingface_milvus_test.db",
     collection_name="huggingface_test",
-    dimension=1024
+    dimension=config["dimension"],
+    chunk_size=config["chunk_size"],
+    chunk_overlap=config["chunk_overlap"]
 )
+
 extractor = ExtractField()
 
 def process_files_in_directory(directory: str) -> None:
-    extracted_data = []
+    final_extracted_data = {}
 
     # Process all PDF files in the directory
     for file_name in os.listdir(directory):
@@ -35,57 +36,72 @@ def process_files_in_directory(directory: str) -> None:
             print(f"Processing {file_name}...")
 
             pages = process_docs.load_documents(pdf_path)
+            db_manager.setup_milvus()
             db_manager.chunk_and_insert(pages)
 
-            for field in config["sow_fields_to_extract"]:
+            extracted_data = {}
+
+            for field in config["msa_fields_to_extract"]:
                 field_value_found = False
-                # query_for_similarity_search = config["query_for_each_field"].get(field, "")
-                query_for_llm = config["query_for_each_field"].get(field, "")
+                query_for_llm = config["msa_query_for_each_field"].get(field, "")
+                msa_points_to_remember = config["msa_points_to_remember"].get(field, "")
 
-                for query in config["sow_queries"][field]:
-                    # Debugging Code : Printing all the fields and queries
+                k_value = 5
+                if field == 'insurance_required':
+                    k_value = 10
 
-                    # print(f"Field: {field}")
-                    # print(f"Query: {query}")
-                    # print(f"Query for Similarity Search: {query_for_similarity_search}")
-                    # print(f"Query for LLM: {query_for_llm}")
-
+                for query in config["msa_queries"][field]:
                     if not field_value_found:
                         try:
-                            similar_content = db_manager.retrieve_similar_content(query, k=2)
-                            response = extractor.extract_field_value(field, similar_content, query=query_for_llm)
-                            print(f"Extracted field '{field}': {response}")
-                        except Exception as e:
-                            print(f"Error extracting field '{field}': {str(e)}")
-                            raise HTTPException(
-                                status_code=500,
-                                detail=f"Error extracting field '{field}': {str(e)}",
+                            similar_content = db_manager.retrieve_similar_content(query, k=k_value)
+                            xml_content = convert_list_to_xml(similar_content)
+                            print(f"XML content App.py: \n{xml_content}\n")
+
+                            response = extractor.extract_field_value(
+                                field,
+                                xml_content,
+                                query=query_for_llm,
+                                points_to_remember=msa_points_to_remember
                             )
-                        if response["field_value_found"]:
-                            extracted_data.append({
-                                "field": field,
-                                "value": response["value"],
-                                "page_num": response["page_number"]
-                            })
-                            field_value_found = True
-                            break
-                if not field_value_found:
-                    extracted_data.append({
-                        "field": field,
-                        "value": "null",
-                        "page_num": 0
-                    })
+                            print(f"\n\nExtracted field Response '{field}': {response}")
 
-            db_manager.delete_collection()
+                            if field == 'insurance_required':
+                                insurance_fields = [
+                                    "insurance_required",
+                                    "type_of_insurance_required",
+                                    "is_cyber_insurance_required",
+                                    "cyber_insurance_amount",
+                                    "is_workman_compensation_insurance_required",
+                                    "workman_compensation_insurance_amount",
+                                    "other_insurance_required",
+                                    "other_insurance_amount"
+                                ]
+                                for insurance_field in insurance_fields:
+                                    if insurance_field in response:
+                                        extracted_data[insurance_field] = response[insurance_field]
+                                field_value_found = True
+                                print(f"\n\nExtracted Insurance Fields: {extracted_data}")
+                                break
+                            else:
+                                if response["field_value_found"]:
+                                    extracted_data[field] = {
+                                        "value": response["value"],
+                                        "page_number": response["page_number"]
+                                    }
+                                    field_value_found = True
+                                    print(f"\n\nExtracted Data: {extracted_data}")
+                                    break
+                        except Exception as e:
+                            print(f"An error occurred while extracting field '{field}': {e}")
 
-    # Write output to CSV
-    with open(OUTPUT_CSV, mode="w", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=["field", "value", "page_num"])
-        writer.writeheader()
-        writer.writerows(extracted_data)
+            # Add the extracted data for the current file to the final_extracted_data
+            final_extracted_data[file_name] = extracted_data
 
-    print(f"Data extraction completed. Output saved to {OUTPUT_CSV}")
-    print(f"Final extracted data: {extracted_data}")
+    # After processing all files, print the final extracted data in JSON format
+    print(json.dumps(final_extracted_data, indent=4))
+
+    db_manager.delete_collection()
+
 
 if __name__ == "__main__":
     process_files_in_directory(UPLOAD_DIR)

@@ -11,10 +11,11 @@ GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 interface PDFViewerProps {
   file: File | null;
   currentPage: number;
-  setCurrentPage: (page: number) => void;
+  setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
+  onClose: () => void;
 }
 
-const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage}) => {
+const PdfViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage, onClose }) => {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [scale, setScale] = useState<number>(1.25);
   const [totalPages, setTotalPages] = useState<number>(0);
@@ -149,8 +150,11 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage
       <div className="border border-gray-300 rounded-lg overflow-auto" style={{ height: '600px' }}>
         <canvas ref={canvasRef} className="mx-auto"></canvas>
       </div>
+      <div className="flex justify-end mt-4">
+        <Button onClick={onClose}>Close</Button>
+      </div>
     </div>
   );
 };
 
-export default PDFViewer;
+export default PdfViewer;
