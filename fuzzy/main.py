@@ -1,129 +1,208 @@
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import os
-import csv
 import yaml
-from PyPDF2 import PdfReader
+import json
+from typing import Dict, List
+from dotenv import load_dotenv
+
+import PyPDF2
 from fuzzywuzzy import fuzz
 from groq import Groq
 
-# Load config.yaml
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
+app = FastAPI()
 
-# Set up Groq API client
-client = Groq(api_key="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")
+load_dotenv()
 
-# Create CSV file
-csv_filename = "contract_field_extraction.csv"
-csv_columns = [
-    "Document Name",
-    "Contract Field",
-    "Page No That is Sent to LLM",
-    "field_value",
-    "value_found",
+def load_config(config_path: str = 'config.yaml') -> dict:
+    """
+    Loads the configuration from a YAML file.
+    """
+    try:
+        with open(config_path, 'r') as file:
+            return yaml.safe_load(file)
+    except FileNotFoundError:
+        print(f"Configuration file not found at path: {config_path}")
+        raise
+    except Exception as e:
+        print(f"Error loading configuration file: {e}")
+        raise
+
+config = load_config()
+
+# Initialize Groq client (reads API key from environment variable)
+groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+# Directory to save uploaded files
+UPLOAD_DIR = "contract_files"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Define templates and prompts
+TEMPLATES = config.get("TEMPLATES", {})
+PROMPTS = config.get("PROMPTS", {})
+
+# -----------------------------
+# CORS Configuration
+# -----------------------------
+
+origins = [
+    "http://localhost:3000",
+    # Add other origins if needed
 ]
 
-# Initialize the CSV file with headers
-with open(csv_filename, mode="w", newline="") as file:
-    writer = csv.DictWriter(file, fieldnames=csv_columns)
-    writer.writeheader()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
+# -----------------------------
+# Extraction Functions
+# -----------------------------
 
-def generate_prompt(field, page_content):
-    prompt_template = """
-        You are an AI assistant specializing in extracting specific fields from business contracts.
-        Your task is to retrieve the requested field value from the provided contract content.
-
-        Context:
-        - The documents you are analyzing are legally binding contracts between businesses or entities.
-        - Fields you are tasked with extracting include key contract details such as dates, company names, terms, parties involved, and other important business information.
-        - Your role is to accurately extract these values without any assumptions or additional commentary.
-
-        Instructions:
-        1. Based on the provided field name and the relevant contract content, extract the value for the specified field in the following format:
-        {{ "value": "[Extracted value]", "field_value_found": true }} if the value is found.
-        2. If the value is not present in the provided content or cannot be determined, return:
-        {{ "value": "null", "field_value_found": false }}.
-        3. Return the output in plain text, not as a code cell or in markdown.
-        4. Do not hallucinate or invent any information. If the content does not contain the answer, return "null" as the value.
-        5. Ensure your response is based only on the provided contract content and related field.
-        6. Return the output only in the JSON format described above, with no additional text or explanations.
-
-        Required Field: {field}
-        Relevant Contract Content: {page_content}
-
-        Return only the value in the strict JSON format.
+def extract_info_with_llm(field: str, page_content: str) -> str:
     """
-    return prompt_template.format(field=field, page_content=page_content)
+    Calls the Groq LLM to extract information based on the field and page content.
+    """
+    prompt_template = PROMPTS.get(field, "")
+    if not prompt_template:
+        print(f"No prompt found for field '{field}'.")
+        return "NA"
 
+    # Replace the placeholder with actual page content
+    prompt = prompt_template.format(page_content=page_content)
 
-def extract_info_with_llm(field, page_content):
-    prompt = generate_prompt(field, page_content)
-    chat_completion = client.chat.completions.create(
-        messages=[{"role": "user", "content": prompt}],
-        model="llama-3.1-8b-instant",
-    )
-    response = chat_completion.choices[0].message.content
-    return response.strip() if response else None
+    try:
+        # Call the Groq API to get a completion
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model="llama3-70b-8192",
+        )
 
+        # Extract and return the concise response content
+        response = chat_completion.choices[0].message.content
+        return response.strip() if response else "NA"
+    except Exception as e:
+        print(f"Error extracting '{field}' with LLM: {e}")
+        return "NA"
 
-def process_field(field, pages, doc_name):
-    best_match_page = None
-    top_page_matches = []
+def load_pdf_content(pdf_path: str) -> PyPDF2.PdfReader:
+    """
+    Loads the PDF file and returns a PdfReader object.
+    """
+    try:
+        pdf_reader = PyPDF2.PdfReader(pdf_path)
+        return pdf_reader
+    except FileNotFoundError:
+        print(f"PDF file not found at path: {pdf_path}")
+        raise
+    except Exception as e:
+        print(f"Error loading PDF file: {e}")
+        raise
 
-    for page_num, page_text in pages.items():
-        for template in config["templates"][field]:
+def process_field(field: str, pdf_reader: PyPDF2.PdfReader, templates: dict) -> str:
+    """
+    Processes a single field by performing fuzzy matching and LLM extraction.
+    """
+    matched_pages = []
+    total_pages = len(pdf_reader.pages)
+
+    # First pass: Collect all pages with a matching template
+    for page_num in range(total_pages):
+        page_obj = pdf_reader.pages[page_num]
+        page_text = page_obj.extract_text() or ""
+
+        # Perform fuzzy matching for each template
+        for template in templates.get(field, []):
             ratio = fuzz.partial_ratio(template.lower(), page_text.lower())
             if ratio > 60:
-                top_page_matches.append((page_num, page_text, ratio))
+                print(f"Page {page_num + 1} matched with template '{template}' for field '{field}' (Score: {ratio})")
+                matched_pages.append((page_num, page_text))
+                break  # Only collect the first match on the page
 
-    # Sort by match score and take the top 3 matches
-    top_page_matches = sorted(top_page_matches, key=lambda x: x[2], reverse=True)[:3]
+    # Second pass: Process all matched pages and extract information
+    for page_num, page_text in matched_pages:
+        extracted_value = extract_info_with_llm(field, page_text)
+        if extracted_value and extracted_value.lower() != "na":
+            print(f"Extracted '{field}' from Page {page_num + 1}: {extracted_value}")
+            return extracted_value
 
-    for match in top_page_matches:
-        page_num, page_text, score = match
-        print(f"Page {page_num + 1} matched for {field} with score {score}")
-        result = extract_info_with_llm(field, page_text)
-        if result and '"field_value_found": true' in result:
-            print(f"Extracted {field}: {result}")
-            return doc_name, field, page_num + 1, result, "true"
+    # If no valid extraction found
+    print(f"No valid '{field}' found in the document after checking all matched pages.")
+    return "NA"
 
-    # If no valid result is found, return null
-    return doc_name, field, "N/A", "null", "false"
+@app.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    pdfType: str = Form(...)
+):
+    """
+    Endpoint to upload and process a SOW PDF document.
+    """
+    # Key Assumption: Only SOW type documents are processed
+    if pdfType.upper() != "SOW":
+        raise HTTPException(status_code=400, detail="Invalid pdfType. Only 'SOW' is supported.")
 
+    # Save the uploaded file
+    file_location = os.path.join(UPLOAD_DIR, file.filename)
+    try:
+        with open(file_location, "wb") as f:
+            f.write(await file.read())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
 
-def process_pdf(pdf_path):
-    # Read the PDF file
-    with open(pdf_path, "rb") as pdf_file:
-        pdf_reader = PdfReader(pdf_file)
-        pages = {
-            i: pdf_reader.pages[i].extract_text() for i in range(len(pdf_reader.pages))
-        }
-        return pages
+    print(f"File saved to {file_location}")
 
+    # Set the PDF_PATH to the saved file
+    pdf_path = file_location
 
-def main():
-    directory_path = "contract_files"
-    output_data = []
+    try:
+        pdf_reader = load_pdf_content(pdf_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    # Process all PDF files in the directory
-    for file_name in os.listdir(directory_path):
-        if file_name.endswith(".pdf"):
-            pdf_path = os.path.join(directory_path, file_name)
-            print(f"Processing {file_name}...")
+    # Define the fields to extract (assuming SOW fields)
+    fields_to_extract = [
+        "currency", "sow_no", "sow_start_date", "remark",
+        "inclusive_or_exclusive_gst", "subcontract_clause", "sow_value", "credit_period",
+        "cola", "total_fte", "client_company_name",
+        "sow_end_date", "type_of_billing", "po_number",
+        "amendment_no", "billing_unit_type_and_rate_cost", "particular_role_rate"
+    ]
 
-            pages = process_pdf(pdf_path)
-            for field in config["templates"]:
-                field_data = process_field(field, pages, file_name)
-                output_data.append(field_data)
+    extracted_data = {field: None for field in fields_to_extract}
 
-    # Write output to CSV
-    with open(csv_filename, mode="a", newline="") as file:
-        writer = csv.writer(file)
-        for data_row in output_data:
-            writer.writerow(data_row)
+    for field in fields_to_extract:
+        print(f"\nProcessing field: {field}")
+        extracted_value = process_field(field, pdf_reader, TEMPLATES)
+        extracted_data[field] = extracted_value
 
-    print(f"Data extraction completed. Output saved to {csv_filename}")
+    print("\nMatching and extraction completed.")
+    print(json.dumps(extracted_data, indent=4))
 
+    # Format the extracted data for the response
+    final_extracted_data = []
+    for field_name, field_value in extracted_data.items():
+        final_extracted_data.append({
+            "field": field_name,
+            "value": field_value if field_value else "NA",
+            "page_num": "0"  # Since `process_field` doesn't return page_num, setting as "0"
+        })
+
+    return JSONResponse({"extracted_data": final_extracted_data})
+
+@app.get("/")
+def read_root():
+    return {"message": "SOW Document Processing API is running."}
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
