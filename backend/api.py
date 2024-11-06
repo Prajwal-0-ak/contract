@@ -127,6 +127,12 @@ async def upload_file(
                 except Exception as e:
                     print(f"An error occurred while extracting field '{field}': {e}")
 
+            if not field_value_found:
+                extracted_data[field] = {
+                    "value": "null",
+                    "page_number": 0
+                }
+    
     # Format the extracted data for the response
 
     db_manager.delete_collection()

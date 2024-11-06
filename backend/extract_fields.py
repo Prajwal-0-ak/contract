@@ -32,7 +32,7 @@ class ExtractField:
 
         # print(f"\nQuery For LLM: {query}")
 
-        print(f"------------------------------Prompt: {prompt}------------------------------")
+        # print(f"------------------------------Prompt: {prompt}------------------------------")
 
         for attempt in range(max_retries):
             # Create a chat completion using the OpenAI client
@@ -47,18 +47,20 @@ class ExtractField:
             # Extract the content from the response
             response_text = response.choices[0].message.content.strip()
 
-            print(f"Response Text: {response_text}")
+            # print(f"Response Text: \n{response_text}")
 
             try:
                 match = re.search(r'<extracted>(.*?)</extracted>', response_text, re.DOTALL)
 
-                print(f"MATCH: {match}")
+                # print(f"MATCH: {match}")
 
                 if match:
                     extracted_json_text = match.group(1).strip()
                 else:
                     raise ValueError("<extracted> not found.")
                 response_json = json.loads(extracted_json_text)
+
+                print(f"Response JSON: {response_json}")
 
                 return response_json
             

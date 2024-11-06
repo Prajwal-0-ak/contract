@@ -76,7 +76,7 @@ class DatabaseManager:
     def retrieve_similar_content(self, query, k=3):
 
         # print("\n\n\n\nRetrieving similar content from Milvus collection")
-        print("\n\n\n\n")
+        # print("\n\n\n\n")
         query_embedding = self.encode_text(query).tolist()[0]  # Extract the first (and only) embedding
         search_results = self.milvus_client.search(
             collection_name=self.collection_name,
@@ -84,8 +84,8 @@ class DatabaseManager:
             limit=k,
             output_fields=["text", "page_number"],  # Include page number in the output fields
         )
-        print(f"\nSimilarity Search Query: {query}")
-        print(f"Search results: \n {search_results}\n")
+        # print(f"\nSimilarity Search Query: {query}")
+        # print(f"Search results: \n {search_results}\n")
         return [{"text": r["entity"]["text"], "page_number": r["entity"]["page_number"]} for r in search_results[0]]  # Return both text and page number
 
 

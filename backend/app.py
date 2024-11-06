@@ -41,31 +41,34 @@ def process_files_in_directory(directory: str) -> None:
 
             extracted_data = {}
 
-            for field in config["msa_fields_to_extract"]:
+            for field in config["sow_fields_to_extract"]:
+
                 field_value_found = False
-                query_for_llm = config["msa_query_for_each_field"].get(field, "")
-                msa_points_to_remember = config["msa_points_to_remember"].get(field, "")
+                query_for_llm = config["sow_query_for_each_field"].get(field, "")
+                sow_points_to_remember = config["sow_points_to_remember"].get(field, "")
 
                 k_value = 5
                 if field == 'insurance_required':
                     k_value = 10
 
-                for query in config["msa_queries"][field]:
+                for query in config["sow_queries"][field]:
+
                     if not field_value_found:
                         try:
                             similar_content = db_manager.retrieve_similar_content(query, k=k_value)
                             xml_content = convert_list_to_xml(similar_content)
-                            print(f"XML content App.py: \n{xml_content}\n")
+                            print(f"XML content App.py: \n{xml_content}\n\n")
 
                             response = extractor.extract_field_value(
                                 field,
                                 xml_content,
                                 query=query_for_llm,
-                                points_to_remember=msa_points_to_remember
+                                points_to_remember=sow_points_to_remember
                             )
-                            print(f"\n\nExtracted field Response '{field}': {response}")
 
                             if field == 'insurance_required':
+
+                                # print(f"\nExtracted Insurance Fields: {response}")
                                 insurance_fields = [
                                     "insurance_required",
                                     "type_of_insurance_required",
@@ -80,7 +83,7 @@ def process_files_in_directory(directory: str) -> None:
                                     if insurance_field in response:
                                         extracted_data[insurance_field] = response[insurance_field]
                                 field_value_found = True
-                                print(f"\n\nExtracted Insurance Fields: {extracted_data}")
+                                print(f"\nExtracted Insurance Fields: {extracted_data}")
                                 break
                             else:
                                 if response["field_value_found"]:
@@ -89,15 +92,20 @@ def process_files_in_directory(directory: str) -> None:
                                         "page_number": response["page_number"]
                                     }
                                     field_value_found = True
-                                    print(f"\n\nExtracted Data: {extracted_data}")
                                     break
                         except Exception as e:
                             print(f"An error occurred while extracting field '{field}': {e}")
 
-            # Add the extracted data for the current file to the final_extracted_data
+                    if not field_value_found:
+                        extracted_data[field] = {
+                            "value": "null",
+                            "page_number": 0
+                        }
+
+            # print(f"\n\nExtracted Data: {file_name} \n{extracted_data}")
             final_extracted_data[file_name] = extracted_data
 
-    # After processing all files, print the final extracted data in JSON format
+    print("\n\nFinal Extracted Data: ")
     print(json.dumps(final_extracted_data, indent=4))
 
     db_manager.delete_collection()

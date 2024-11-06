@@ -97,9 +97,9 @@ sow_points_to_remember:
 
   "currency": "Your unit value should be in 'USD' OR 'INR'?"
 
-  "sow_start_date": "\n1. Make sure you do not return some unrelated date as the effective start date. \n2. The format should be YYYY-MM-DD."
+  "sow_start_date": "\n1. Make sure you do not return some unrelated date as the effective start date. \n2. The format should be YYYY-MM-DD. \n3. If date is not specified, then return 'null'."
 
-  "sow_end_date": "\n1. Make sure you do not return some unrelated date as the end date. \n2. The format should be YYYY-MM-DD."
+  "sow_end_date": "\n1. Make sure you do not return some unrelated date as the end date. \n2. The format should be YYYY-MM-DD. \n3. If date is not specified, then return 'null'."
 
   "cola": "Your response should be a numerical value. Its full form is Cost of Living Adjustment. It general in terms of percentage."
 
@@ -132,7 +132,8 @@ sow_queries:
 
   sow_start_date:
     - "What is the start date or effective date of the Statement of Work (SOW) as mentioned in the document? Look for terms such as 'SOW Effective Date' or any specific commencement date"
-    - "What is the start date of the Statement of Work (SOW)?"
+    # - "This Services Agreement (“Agreement”) entered between the Parties at Gurugram is effective from July 15, 2023"
+    - "This Statement of Work no. 1 (“SOW”), effective as of 31st July 2023, is by and between Infostretch  Corporation  (India)  Private  Limited  "
 
   sow_end_date:
     - "When does the term of the Statement of Work (SOW) end? Identify the exact end date or any expiration date mentioned in the document. Look for phrases such as 'continue to be in force until' or 'terminate'."

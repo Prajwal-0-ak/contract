@@ -17,7 +17,7 @@ interface PDFViewerProps {
 
 const PdfViewer: React.FC<PDFViewerProps> = ({ file, currentPage, setCurrentPage, onClose }) => {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
-  const [scale, setScale] = useState<number>(1.25);
+  const [scale, setScale] = useState<number>(1.10);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [isRendering, setIsRendering] = useState<boolean>(false);
   const [searchPage, setSearchPage] = useState<string>('');
