@@ -6,7 +6,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         gcc \
         python3-venv \
-        supervisor \
         git \
         npm && \
     apt-get clean && \
@@ -16,37 +15,37 @@ RUN apt-get update && \
 WORKDIR /app
 
 # ----------------------
-# Backend Setup
+# RAG Pipeline Setup
 # ----------------------
 
-# Copy backend requirements first for better caching
-COPY backend/requirements.txt ./backend/
+# Copy requirements.txt to the root directory for better caching
+COPY requirements.txt ./
 
 # Remove 'torch' and 'sentence-transformers' from requirements to install them separately
-RUN sed -i '/^torch$/d' ./backend/requirements.txt && \
-    sed -i '/^sentence-transformers$/d' ./backend/requirements.txt
+RUN sed -i '/^torch$/d' requirements.txt && \
+    sed -i '/^sentence-transformers$/d' requirements.txt
 
 # Create and activate virtual environment
-RUN python3 -m venv /env-backend
+RUN python3 -m venv /env-rag
 
-# Upgrade pip and install backend dependencies
-RUN /env-backend/bin/pip install --upgrade pip && \
-    /env-backend/bin/pip install --no-cache-dir -r ./backend/requirements.txt
+# Upgrade pip and install RAG pipeline dependencies
+RUN /env-rag/bin/pip install --upgrade pip && \
+    /env-rag/bin/pip install --no-cache-dir -r requirements.txt
 
 # Install CPU-only PyTorch and sentence-transformers separately
-RUN /env-backend/bin/pip install --no-cache-dir torch==2.0.1+cpu \
+RUN /env-rag/bin/pip install --no-cache-dir torch==2.0.1+cpu \
     -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
-    /env-backend/bin/pip install --no-cache-dir sentence-transformers
+    /env-rag/bin/pip install --no-cache-dir sentence-transformers
 
-# Copy the backend source code
-COPY backend/ ./backend/
+# Copy the RAG pipeline source code
+COPY rag_pipeline/ ./rag_pipeline/
 
 # ----------------------
 # Fuzzy Pipeline Setup
 # ----------------------
 
-# Copy the fuzzy source code
-COPY fuzzy/ ./fuzzy/
+# Copy the fuzzy pipeline source code
+COPY fuzzy_pipeline/ ./fuzzy_pipeline/
 
 # ----------------------
 # Frontend Setup
@@ -65,14 +64,15 @@ COPY frontend/ ./frontend/
 RUN cd frontend && npm run build
 
 # ----------------------
-# Supervisor Configuration
+# Expose Ports
 # ----------------------
 
-# Copy supervisor configuration file
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Expose necessary ports
 EXPOSE 3000 8000 8080
 
-# Start Supervisor to run all services
-CMD ["/usr/bin/supervisord"]
+# ----------------------
+# Start Services
+# ----------------------
+
+CMD ["sh", "-c", "cd rag_pipeline && /env-rag/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 & \
+                 cd ../fuzzy_pipeline && /env-rag/bin/uvicorn main:app --host 0.0.0.0 --port 8080 & \
+                 cd ../frontend && npm start"]
